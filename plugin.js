@@ -20,7 +20,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.4.0",
+  version: "0.5.0",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: ALL_MODELS,
@@ -136,7 +136,7 @@ function isHTTPURL(value) {
   return /^https?:\/\//i.test(trimmed(value));
 }
 
-const MEDIA_ROLES = ["first_frame", "last_frame", "reference_image", "reference_video"];
+const MEDIA_ROLES = ["first_frame", "last_frame", "reference_image", "reference_video", "reference_audio"];
 
 function normalizeMediaRole(value) {
   const role = trimmed(value).toLowerCase();
@@ -151,7 +151,9 @@ function appendMedia(target, value, label, kind, role) {
   let itemRole = role;
   if (isObject(value)) {
     if (itemRole === undefined) itemRole = value.role;
-    candidate = kind === "image" ? value.url || value.Url : value.url || value.Url || value.video_url || value.video;
+    if (kind === "image") candidate = value.url || value.Url;
+    else if (kind === "video") candidate = value.url || value.Url || value.video_url || value.video;
+    else candidate = value.url || value.Url || value.audio_url || value.audio;
     if (isObject(candidate)) candidate = candidate.url || candidate.Url;
   }
   if (!candidate || !isHTTPURL(candidate)) throw new Error((label || kind + " URL") + " must be a public http(s) URL");
@@ -167,11 +169,16 @@ function appendVideoURL(target, value, label, role) {
   appendMedia(target, value, label || "video URL", "video", role);
 }
 
+function appendAudioURL(target, value, label, role) {
+  appendMedia(target, value, label || "audio URL", "audio", role);
+}
+
 function mediaURLsFromContent(content) {
-  if (content === undefined) return { images: [], videos: [] };
+  if (content === undefined) return { images: [], videos: [], audios: [] };
   if (!Array.isArray(content)) throw new Error("content must be an array");
   const images = [];
   const videos = [];
+  const audios = [];
   for (const item of content) {
     if (!isObject(item)) continue;
     if (item.type === "text" || item.type === "input_text") continue;
@@ -183,9 +190,13 @@ function mediaURLsFromContent(content) {
       appendVideoURL(videos, item.video_url === undefined ? item.video : item.video_url, "video_url", item.role);
       continue;
     }
-    throw new Error("only text, image_url, and video_url content is supported");
+    if (item.type === "audio_url" || item.type === "input_audio" || item.type === "audio" || Object.prototype.hasOwnProperty.call(item, "audio_url")) {
+      appendAudioURL(audios, item.audio_url === undefined ? item.audio : item.audio_url, "audio_url", item.role);
+      continue;
+    }
+    throw new Error("only text, image_url, video_url, and audio_url content is supported");
   }
-  return { images: images, videos: videos };
+  return { images: images, videos: videos, audios: audios };
 }
 
 function mergeMedia(target, values) {
@@ -195,10 +206,11 @@ function mergeMedia(target, values) {
 }
 
 function mediaURLsFromBody(body) {
-  if (!isObject(body)) return { images: [], videos: [] };
+  if (!isObject(body)) return { images: [], videos: [], audios: [] };
   const media = mediaURLsFromContent(body.content);
   const images = media.images;
   const videos = media.videos;
+  const audios = media.audios;
   appendImageURL(images, body.image_url, "image_url", body.role);
   appendImageURL(images, body.image, "image", body.role);
   appendImageURL(images, body.input_reference, "input_reference", body.role);
@@ -212,60 +224,66 @@ function mediaURLsFromBody(body) {
     if (!Array.isArray(body.videos)) throw new Error("videos must be an array");
     for (const video of body.videos) appendVideoURL(videos, video, "videos");
   }
+  appendAudioURL(audios, body.audio_url, "audio_url", body.role);
+  appendAudioURL(audios, body.audio, "audio", body.role);
+  if (body.audios !== undefined) {
+    if (!Array.isArray(body.audios)) throw new Error("audios must be an array");
+    for (const audio of body.audios) appendAudioURL(audios, audio, "audios");
+  }
   const input = typeof body.input === "string" ? parseJSON(body.input) : body.input;
   if (isObject(input)) {
     const nested = mediaURLsFromBody(input);
     mergeMedia(images, nested.images);
     mergeMedia(videos, nested.videos);
+    mergeMedia(audios, nested.audios);
   }
-  return { images: images, videos: videos };
+  return { images: images, videos: videos, audios: audios };
 }
 
 function assertSupportedInput(body) {
   const unsupportedKeys = ["media", "Media", "Medias", "ImportMedia", "MediaId"];
   for (const key of unsupportedKeys) {
     if (body[key] !== undefined && body[key] !== null && body[key] !== "" && !(Array.isArray(body[key]) && body[key].length === 0))
-      throw new Error("only public image/video URLs are supported; MediaId and vendor media fields are not accepted");
+      throw new Error("only public image/video/audio URLs are supported; MediaId and vendor media fields are not accepted");
   }
   for (const key of ["input", "Input"]) {
     const value = typeof body[key] === "string" ? parseJSON(body[key]) : body[key];
     if (!isObject(value)) continue;
     if (value.MediaId || value.mediaId || value.Media || value.Medias || value.media || value.medias)
-      throw new Error("only public image/video URLs are supported; MediaId and vendor media fields are not accepted");
+      throw new Error("only public image/video/audio URLs are supported; MediaId and vendor media fields are not accepted");
   }
   return mediaURLsFromBody(body);
 }
 
-function videoTaskAction(images, videos) {
-  if (images.length && videos.length) throw new Error("image and video references cannot be mixed");
+function videoTaskAction(images, videos, audios) {
+  if (images.length && videos.length) throw new Error("image and video references cannot be mixed in this version");
   if (videos.length > 1) throw new Error("reference_to_video accepts one video URL in this version");
+  if (audios.length > 1) throw new Error("reference_to_video accepts one audio URL in this version");
   for (const video of videos) {
     if (video.role && video.role !== "reference_video") throw new Error("video_url role must be reference_video");
   }
-  if (videos.length) return "reference_to_video";
-  if (!images.length) return "text_to_video";
+  for (const audio of audios) {
+    if (audio.role && audio.role !== "reference_audio") throw new Error("audio_url role must be reference_audio");
+  }
+  if (!images.length && !videos.length && !audios.length) return "text_to_video";
 
   const firstFrames = images.filter(function (image) { return image.role === "first_frame"; });
   const lastFrames = images.filter(function (image) { return image.role === "last_frame"; });
   const referenceImages = images.filter(function (image) { return image.role === "reference_image"; });
   const untagged = images.filter(function (image) { return !image.role; });
 
-  if (referenceImages.length) {
-    if (images.length > 1) throw new Error("reference_image accepts one image URL in this version");
-    return "reference_to_video";
-  }
   if (lastFrames.length) {
-    if (!firstFrames.length || images.length !== 2 || firstFrames.length !== 1 || lastFrames.length !== 1 || untagged.length)
-      throw new Error("last_frame requires exactly one first_frame image");
+    if (audios.length || videos.length || !firstFrames.length || images.length !== 2 || firstFrames.length !== 1 || lastFrames.length !== 1 || untagged.length)
+      throw new Error("first_last_frame accepts exactly one first_frame and one last_frame image");
     return "first_last_frame";
   }
   if (firstFrames.length) {
-    if (images.length === 1 && firstFrames.length === 1) return "image_to_video";
-    if (images.length !== 2 || firstFrames.length !== 1 || untagged.length)
-      throw new Error("first_last_frame requires exactly one first_frame and one last_frame image");
-    return "first_last_frame";
+    if (images.length === 1 && firstFrames.length === 1 && !audios.length && !videos.length) return "image_to_video";
+    throw new Error("first_frame cannot be mixed with reference media; use reference_image for multimodal references");
   }
+  if (referenceImages.length && images.length > 1) throw new Error("reference_image accepts one image URL in this version");
   if (images.length > 1) throw new Error("multiple image URLs require first_frame and last_frame roles");
+  if (videos.length || audios.length || referenceImages.length) return "reference_to_video";
   return "image_to_video";
 }
 
@@ -375,18 +393,19 @@ function nativeTextTask(ctx, kind) {
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
-  if (kind === "image" && videos.length) throw new Error("image generation does not support video input");
+  const audios = media.audios;
+  if (kind === "image" && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");
   if (kind === "image" && images.length > 9) throw new Error("image_to_image accepts at most nine image URLs");
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
   const action = kind === "image"
     ? (images.length ? "image_to_image" : "text_to_image")
-    : videoTaskAction(images, videos);
+    : videoTaskAction(images, videos, audios);
   return {
     kind: "submit",
     model: model,
     action: action,
-    requestBody: { model: model, prompt: prompt, images: images, videos: videos, metadata: body },
+    requestBody: { model: model, prompt: prompt, images: images, videos: videos, audios: audios, metadata: body },
   };
 }
 
@@ -414,7 +433,8 @@ function openaiVideoTask(ctx) {
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
-  const action = videoTaskAction(images, videos);
+  const audios = media.audios;
+  const action = videoTaskAction(images, videos, audios);
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
@@ -424,16 +444,17 @@ function openaiVideoTask(ctx) {
     kind: "submit",
     model: ctx.model,
     action: action,
-    requestBody: Object.assign({}, body, { model: ctx.model, prompt: prompt, seconds: seconds, images: images, videos: videos }),
+    requestBody: Object.assign({}, body, { model: ctx.model, prompt: prompt, seconds: seconds, images: images, videos: videos, audios: audios }),
   };
 }
 
 function responsesInput(value) {
-  if (typeof value === "string") return { prompt: trimmed(value), images: [], videos: [] };
-  if (!Array.isArray(value)) return { prompt: "", images: [], videos: [] };
+  if (typeof value === "string") return { prompt: trimmed(value), images: [], videos: [], audios: [] };
+  if (!Array.isArray(value)) return { prompt: "", images: [], videos: [], audios: [] };
   const texts = [];
   const images = [];
   const videos = [];
+  const audios = [];
   for (const item of value) {
     if (typeof item === "string") {
       if (trimmed(item)) texts.push(trimmed(item));
@@ -450,12 +471,14 @@ function responsesInput(value) {
         appendImageURL(images, part.image_url === undefined ? part.image : part.image_url, "input image", part.role);
       } else if (isObject(part) && (part.type === "input_video" || part.type === "video_url" || part.type === "video" || Object.prototype.hasOwnProperty.call(part, "video_url"))) {
         appendVideoURL(videos, part.video_url === undefined ? part.video : part.video_url, "input video", part.role);
+      } else if (isObject(part) && (part.type === "input_audio" || part.type === "audio_url" || part.type === "audio" || Object.prototype.hasOwnProperty.call(part, "audio_url"))) {
+        appendAudioURL(audios, part.audio_url === undefined ? part.audio : part.audio_url, "input audio", part.role);
       } else if (isObject(part) && part.type) {
-        throw new Error("only text, image_url, and video_url content is supported");
+        throw new Error("only text, image_url, video_url, and audio_url content is supported");
       }
     }
   }
-  return { prompt: texts.join("\n"), images: images, videos: videos };
+  return { prompt: texts.join("\n"), images: images, videos: videos, audios: audios };
 }
 
 function responsesText(value) {
@@ -469,7 +492,7 @@ function responsesTask(ctx) {
   const input = responsesInput(body.input);
   const prompt = input.prompt || trimmed(body.prompt);
   if (!prompt) throw new Error("input is required");
-  const action = videoTaskAction(input.images, input.videos);
+  const action = videoTaskAction(input.images, input.videos, input.audios);
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
   if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
     throw new Error("seconds must be between 1 and 3600");
@@ -477,7 +500,7 @@ function responsesTask(ctx) {
     kind: "submit",
     model: ctx.model,
     action: action,
-    requestBody: { model: ctx.model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, metadata: body.metadata || {} },
+    requestBody: { model: ctx.model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, audios: input.audios, metadata: body.metadata || {} },
   };
 }
 
@@ -493,22 +516,21 @@ function inputObject(request, metadata) {
   return supplied;
 }
 
-function vendorInput(request, metadata, prompt, images, videos, taskAction) {
+function vendorInput(request, metadata, prompt, images, videos, audios, taskAction) {
   const input = Object.assign({}, inputObject(request, metadata));
   if (!trimmed(input.Prompt) && prompt) input.Prompt = prompt;
+  const medias = [];
   if (images.length) {
     const orderedImages = taskAction === "first_last_frame"
       ? images.slice().sort(function (left, right) {
           return ["first_frame", "last_frame"].indexOf(left.role) - ["first_frame", "last_frame"].indexOf(right.role);
         })
       : images;
-    input.Medias = orderedImages.map(function (image) {
-      return { Type: "image", Url: image.url };
-    });
+    for (const image of orderedImages) medias.push({ Type: "image", Url: image.url });
   }
-  if (videos.length) input.Medias = videos.map(function (video) {
-    return { Type: "video", Url: video.url };
-  });
+  for (const video of videos) medias.push({ Type: "video", Url: video.url });
+  for (const audio of audios) medias.push({ Type: "audio", Url: audio.url });
+  if (medias.length) input.Medias = medias;
   return input;
 }
 
@@ -528,19 +550,21 @@ function buildFields(ctx) {
   const metadataMedia = mediaURLsFromBody(metadata);
   const images = requestMedia.images.slice();
   const videos = requestMedia.videos.slice();
+  const audios = requestMedia.audios.slice();
   mergeMedia(images, metadataMedia.images);
   mergeMedia(videos, metadataMedia.videos);
+  mergeMedia(audios, metadataMedia.audios);
   const outputImage = actionIsImage(ctx.action) || modelIsImage(ctx.upstreamModel || ctx.model);
   const model = trimmed(ctx.upstreamModel || ctx.model || request.model);
   const prompt = trimmed(request.prompt || promptFromBody(request) || promptFromBody(metadata));
   if (!model) throw new Error("model is required");
   if (!prompt) throw new Error("prompt is required");
-  if (outputImage && videos.length) throw new Error("image generation does not support video input");
+  if (outputImage && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");
   if (outputImage && images.length > 9) throw new Error("image_to_image accepts at most nine image URLs");
 
   const taskAction = outputImage
     ? (images.length ? "image_to_image" : "text_to_image")
-    : videoTaskAction(images, videos);
+    : videoTaskAction(images, videos, audios);
   const size = firstValue(request, metadata, ["size", "Size"]);
   const resolution = outputImage
     ? normalizeImageResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size)
@@ -555,7 +579,7 @@ function buildFields(ctx) {
     Format: "JSON",
     JobType: taskAction,
     Model: model,
-    Input: JSON.stringify(vendorInput(request, metadata, prompt, images, videos, taskAction)),
+    Input: JSON.stringify(vendorInput(request, metadata, prompt, images, videos, audios, taskAction)),
     Resolution: resolution,
   };
   if (ratio) fields.AspectRatio = ratio;

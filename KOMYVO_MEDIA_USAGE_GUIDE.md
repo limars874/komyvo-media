@@ -56,6 +56,7 @@ happyhorse-1.1
 | `last_frame` | 尾帧 | 必须与一个 `first_frame` 成对出现 |
 | `reference_image` | 参考图片 | 当前只接受一个 |
 | `reference_video` | 参考视频 | 单个视频时可省略，默认值为 `reference_video` |
+| `reference_audio` | 参考音频 | 当前最多一个音频 URL |
 
 两个图片 URL 不能再只依赖数组顺序判断首尾帧；必须显式填写 `first_frame` 和 `last_frame`。`text` 内容项继续用于提示词，用户不需要填写 Vendor 的 `JobType`、`Input` 或 `MediaId`。
 
@@ -139,7 +140,29 @@ curl --request POST "$BASE_URL/v1/videos" \
 
 `video_url` 必须是供应商可访问的公开 `http(s)` URL。`role` 可填写 `reference_video`，省略时默认按参考视频处理。Plugin 会自动转换为 Komyvo 的 `reference_to_video` 和 `Input.Medias[].Type = "video"`；当前版本只接受一个参考视频，暂不接受 `MediaId`、`ImportMedia` 或本地文件上传。
 
-### 2.2.3 首尾帧生视频
+### 2.2.3 音频参考生视频
+
+音频输入沿用 Seedance 风格的 `audio_url` 和 `reference_audio`：
+
+```bash
+curl --request POST "$BASE_URL/v1/videos" \
+  --header "Authorization: Bearer $NEW_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "model": "doubao-seedance-2-0",
+    "content": [
+      {"type": "audio_url", "role": "reference_audio", "audio_url": {"url": "https://example.com/reference.mp3"}},
+      {"type": "text", "text": "按照音频节奏生成有镜头变化的视频"}
+    ],
+    "seconds": 5,
+    "resolution": "720P",
+    "n": 1
+  }'
+```
+
+`audio_url` 必须是 Vendor 可访问的公开 `http(s)` URL；当前 Plugin 每个任务最多接受一个音频 URL，可与一个参考图片或参考视频组合，具体模型是否支持由 Vendor 决定。Plugin 会转换为 `reference_to_video` 和 `Input.Medias[].Type = "audio"`；不接受本地文件、`MediaId` 或 `ImportMedia`。
+
+### 2.2.4 首尾帧生视频
 
 首尾帧必须显式标注两个角色，不能只依赖图片顺序：
 
@@ -323,7 +346,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.4.0` 已支持图生图；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.5.0` 已支持图生图和音频参考输入；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
@@ -332,7 +355,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 | `401 Unauthorized` | New API Token 无效、缺少 `Bearer` 或 Token 已禁用。 |
 | `model_price_error` | 后台没有为该模型配置完整价格。 |
 | `prompt is required` | 未填写非空 `prompt`。 |
-| `only public image/video URLs are supported` | 媒体输入必须是 Komyvo upstream 可访问的公网 `http(s)` URL；不接受 `MediaId`、`ImportMedia` 或本地文件。 |
+| `only public image/video/audio URLs are supported` | 媒体输入必须是 Komyvo upstream 可访问的公网 `http(s)` URL；不接受 `MediaId`、`ImportMedia` 或本地文件。 |
 | `status=failed` | 查看响应中的 `error.message`，通常是模型权限、参数或供应商任务失败。 |
 
 ## 5. 调用流程摘要
