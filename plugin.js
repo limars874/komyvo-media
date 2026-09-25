@@ -20,7 +20,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.5.0",
+  version: "0.5.1",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: ALL_MODELS,
@@ -126,6 +126,14 @@ function firstValue(primary, secondary, names) {
 function numberValue(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function assertSingleOutput(primary, secondary) {
+  const value = firstValue(primary, secondary, ["n", "N"]);
+  if (value === undefined || value === null || value === "") return 1;
+  const count = Number(value);
+  if (!Number.isFinite(count) || count !== 1) throw new Error("only one output is supported; n must be 1");
+  return 1;
 }
 
 function actionIsImage(action) {
@@ -388,6 +396,7 @@ function promptFromBody(body) {
 
 function nativeTextTask(ctx, kind) {
   const body = requestObject(ctx);
+  assertSingleOutput(body);
   const model = trimmed(body.model);
   if (!model) throw new Error("model is required");
   const media = assertSupportedInput(body);
@@ -430,6 +439,7 @@ function multipartRequest(ctx) {
 function openaiVideoTask(ctx) {
   const body = multipartRequest(ctx);
   if (!isObject(body)) throw new Error("request body must be an object");
+  assertSingleOutput(body);
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
@@ -488,6 +498,7 @@ function responsesText(value) {
 function responsesTask(ctx) {
   if (!ctx.body || ctx.body.kind !== "json" || !isObject(ctx.body.value)) throw new Error("JSON body required");
   const body = ctx.body.value;
+  assertSingleOutput(body);
   if (body.metadata !== undefined && !isObject(body.metadata)) throw new Error("metadata must be an object");
   const input = responsesInput(body.input);
   const prompt = input.prompt || trimmed(body.prompt);
@@ -570,7 +581,7 @@ function buildFields(ctx) {
     ? normalizeImageResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size)
     : normalizeVideoResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size);
   const ratio = firstValue(request, metadata, ["aspect_ratio", "aspectRatio", "AspectRatio", "ratio", "Ratio"]) || aspectRatioFromSize(size);
-  const n = firstValue(request, metadata, ["n", "N"]);
+  const outputCount = assertSingleOutput(request, metadata);
   const duration = firstValue(request, metadata, ["seconds", "duration", "Duration"]);
   const scene = firstValue(request, metadata, ["scene", "Scene"]);
   const jobParameters = firstValue(request, metadata, ["jobParameters", "JobParameters", "job_parameters"]);
@@ -583,7 +594,7 @@ function buildFields(ctx) {
     Resolution: resolution,
   };
   if (ratio) fields.AspectRatio = ratio;
-  if (n !== undefined && n !== null && n !== "") fields.N = String(n);
+  fields.N = String(outputCount);
   if (!outputImage && duration !== undefined && duration !== null && duration !== "") fields.Duration = String(duration);
   if (scene !== undefined && scene !== null && scene !== "") fields.Scene = String(scene);
   if (jobParameters !== undefined && jobParameters !== null && jobParameters !== "") fields.JobParameters = jsonString(jobParameters, "JobParameters");

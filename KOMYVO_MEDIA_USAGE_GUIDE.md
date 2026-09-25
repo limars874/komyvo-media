@@ -37,7 +37,7 @@ happyhorse-1.0
 happyhorse-1.1
 ```
 
-当前支持**文生视频**、**图生视频**、单个公开视频 URL 的**参考视频生视频**和带 `role` 的**首尾帧请求**，输出异步任务，通常为 MP4；当前不支持多个参考视频和 `MediaId`。Komyvo upstream 具体模型是否支持某种输入，以实际能力为准。
+当前支持**文生视频**、**图生视频**、单个公开视频 URL 的**参考视频生视频**、音频参考和带 `role` 的**首尾帧请求**，每个任务固定只生成一个输出，输出异步任务，通常为 MP4；当前不支持多个参考视频和 `MediaId`。Komyvo upstream 具体模型是否支持某种输入，以实际能力为准。
 
 ### 2.1.1 统一媒体输入格式
 
@@ -78,8 +78,7 @@ curl --request POST "$BASE_URL/v1/videos" \
     "model": "happyhorse-1.0",
     "prompt": "一只橘猫在阳光下的草地上散步，写实风格",
     "seconds": 3,
-    "size": "1280x720",
-    "n": 1
+    "size": "1280x720"
   }'
 ```
 
@@ -92,7 +91,6 @@ curl --request POST "$BASE_URL/v1/videos" \
 | `seconds` | 否 | 视频时长；`happyhorse-1.0` 已验证支持 3～15 秒。 |
 | `size` | 否 | 如 `1280x720`（720P）、`1920x1080`（1080P）。 |
 | `resolution` | 否 | 也可直接填写 `720P` 或 `1080P`。 |
-| `n` | 否 | 输出数量，默认 1；建议先使用 1。 |
 | `aspect_ratio` | 否 | 如 `16:9`、`9:16`、`1:1`。 |
 | `scene` | 否 | 场景类型，默认 `general`。 |
 
@@ -111,8 +109,7 @@ curl --request POST "$BASE_URL/v1/videos" \
       {"type": "text", "text": "让画面中的人物自然转身并向远处走去"}
     ],
     "seconds": 3,
-    "resolution": "720P",
-    "n": 1
+    "resolution": "720P"
   }'
 ```
 
@@ -133,8 +130,7 @@ curl --request POST "$BASE_URL/v1/videos" \
       {"type": "text", "text": "保持人物主体，改成电影感镜头"}
     ],
     "seconds": 5,
-    "resolution": "720P",
-    "n": 1
+    "resolution": "720P"
   }'
 ```
 
@@ -155,8 +151,7 @@ curl --request POST "$BASE_URL/v1/videos" \
       {"type": "text", "text": "按照音频节奏生成有镜头变化的视频"}
     ],
     "seconds": 5,
-    "resolution": "720P",
-    "n": 1
+    "resolution": "720P"
   }'
 ```
 
@@ -178,8 +173,7 @@ curl --request POST "$BASE_URL/v1/videos" \
       {"type": "text", "text": "让首帧自然过渡到尾帧"}
     ],
     "seconds": 5,
-    "resolution": "720P",
-    "n": 1
+    "resolution": "720P"
   }'
 ```
 
@@ -256,8 +250,7 @@ curl --request POST "$BASE_URL/komyvo/v1/images" \
   --data '{
     "model": "qwen-image-3.0",
     "prompt": "一只戴着宇航员头盔的橘猫，漂浮在星云中，电影级光影",
-    "resolution": "1K",
-    "n": 1
+    "resolution": "1K"
   }'
 ```
 
@@ -269,7 +262,6 @@ curl --request POST "$BASE_URL/komyvo/v1/images" \
 | `prompt` | 是 | 文生图片提示词。 |
 | `resolution` | 否 | `1K`、`2K` 或 `4K`，默认 `1K`。 |
 | `size` | 否 | 也可使用尺寸表达，例如 `1024x1024`。 |
-| `n` | 否 | 输出数量，建议使用 1；供应商文档范围为 1～4。 |
 | `aspect_ratio` | 否 | 如 `16:9`、`9:16`、`1:1`。 |
 | `scene` | 否 | 场景类型，默认 `general`。 |
 
@@ -287,8 +279,7 @@ curl --request POST "$BASE_URL/komyvo/v1/images" \
       {"type": "image_url", "role": "reference_image", "image_url": {"url": "https://example.com/input.png"}},
       {"type": "text", "text": "转换为电影感的黄昏色调，保持原有构图"}
     ],
-    "resolution": "1K",
-    "n": 1
+    "resolution": "1K"
   }'
 ```
 
@@ -346,7 +337,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.5.0` 已支持图生图和音频参考输入；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.5.1` 已支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
