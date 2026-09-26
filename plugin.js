@@ -1,14 +1,73 @@
-const VIDEO_MODELS = [
-  "Wonder-Ultra",
-  "Wonder-Pro",
-  "Wonder-Standard",
-  "wan3.0-video",
-  "happyhorse-1.0",
-  "happyhorse-1.1",
-];
+const MODEL_CAPABILITIES = {
+  "Wonder-Ultra": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    input: { images: 10, videos: 5, audios: 5, totalMedia: null, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "Wonder-Pro": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "Wonder-Standard": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "wan3.0-video": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    input: { images: 10, videos: 5, audios: 5, totalMedia: 20, mixedMedia: true, videoTotalSeconds: 15, audioTotalSeconds: 15 },
+  },
+  "happyhorse-1.0": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "5:4", "4:5"],
+    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "happyhorse-1.1": {
+    kind: "video",
+    resolutions: ["720P", "1080P"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "5:4", "4:5"],
+    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "Wonder-Image-2": {
+    kind: "image",
+    resolutions: ["1K", "2K", "4K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    input: { images: 16, videos: 0, audios: 0, totalMedia: 16, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "Wonder-Image-Pro": {
+    kind: "image",
+    resolutions: ["1K", "2K", "4K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    input: { images: 14, videos: 0, audios: 0, totalMedia: 14, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "qwen-image-2.0": {
+    kind: "image",
+    resolutions: ["1K", "2K", "4K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+  "qwen-image-3.0": {
+    kind: "image",
+    resolutions: ["1K", "2K", "4K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "5:4", "4:5", "3:2", "2:3", "21:9"],
+    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+  },
+};
 
-const IMAGE_MODELS = ["Wonder-Image-2", "Wonder-Image-Pro", "qwen-image-2.0", "qwen-image-3.0"];
-const ALL_MODELS = VIDEO_MODELS.concat(IMAGE_MODELS);
+const VIDEO_MODELS = Object.keys(MODEL_CAPABILITIES).filter(function (model) {
+  return MODEL_CAPABILITIES[model].kind === "video";
+});
+const IMAGE_MODELS = Object.keys(MODEL_CAPABILITIES).filter(function (model) {
+  return MODEL_CAPABILITIES[model].kind === "image";
+});
+const ALL_MODELS = Object.keys(MODEL_CAPABILITIES);
 const VIDEO_RESOLUTIONS = ["720P", "1080P"];
 const IMAGE_RESOLUTIONS = ["1K", "2K", "4K"];
 
@@ -20,7 +79,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.5.1",
+  version: "0.6.2",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: ALL_MODELS,
@@ -104,6 +163,13 @@ function isObject(value) {
 
 function trimmed(value) {
   return String(value === undefined || value === null ? "" : value).trim();
+}
+
+function capabilityFor(model) {
+  const name = trimmed(model);
+  const capability = MODEL_CAPABILITIES[name];
+  if (!capability) throw new Error("unsupported model: " + name);
+  return capability;
 }
 
 function parseJSON(value) {
@@ -323,19 +389,34 @@ function normalizeImageResolution(value) {
   return "1K";
 }
 
-function aspectRatioFromSize(value) {
+function aspectRatioFromSize(value, allowedRatios) {
   const parts = trimmed(value).replace("*", "x").split("x");
   if (parts.length !== 2) return "";
   const width = Number(parts[0]);
   const height = Number(parts[1]);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return "";
   const ratio = width / height;
-  if (Math.abs(ratio - 1) < 0.05) return "1:1";
-  if (Math.abs(ratio - 16 / 9) < 0.08) return "16:9";
-  if (Math.abs(ratio - 9 / 16) < 0.08) return "9:16";
-  if (Math.abs(ratio - 4 / 3) < 0.08) return "4:3";
-  if (Math.abs(ratio - 3 / 4) < 0.08) return "3:4";
-  return "";
+  let closest = "";
+  let distance = Infinity;
+  for (const candidate of allowedRatios || []) {
+    const values = candidate.split(":").map(Number);
+    if (values.length !== 2 || !values[0] || !values[1]) continue;
+    const difference = Math.abs(ratio - values[0] / values[1]);
+    if (difference < distance) {
+      closest = candidate;
+      distance = difference;
+    }
+  }
+  return distance < 0.08 ? closest : "";
+}
+
+function validateAspectRatio(value, capability) {
+  const ratio = trimmed(value);
+  if (!ratio) return "";
+  if (!capability.aspectRatios.includes(ratio)) {
+    throw new Error("aspect_ratio must be one of: " + capability.aspectRatios.join(", "));
+  }
+  return ratio;
 }
 
 function baseRoot(value) {
@@ -569,6 +650,7 @@ function buildFields(ctx) {
   const model = trimmed(ctx.upstreamModel || ctx.model || request.model);
   const prompt = trimmed(request.prompt || promptFromBody(request) || promptFromBody(metadata));
   if (!model) throw new Error("model is required");
+  const capability = capabilityFor(model);
   if (!prompt) throw new Error("prompt is required");
   if (outputImage && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");
   if (outputImage && images.length > 9) throw new Error("image_to_image accepts at most nine image URLs");
@@ -580,7 +662,8 @@ function buildFields(ctx) {
   const resolution = outputImage
     ? normalizeImageResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size)
     : normalizeVideoResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size);
-  const ratio = firstValue(request, metadata, ["aspect_ratio", "aspectRatio", "AspectRatio", "ratio", "Ratio"]) || aspectRatioFromSize(size);
+  const ratioInput = firstValue(request, metadata, ["aspect_ratio", "aspectRatio", "AspectRatio", "ratio", "Ratio"]);
+  const ratio = validateAspectRatio(ratioInput || aspectRatioFromSize(size, capability.aspectRatios), capability);
   const outputCount = assertSingleOutput(request, metadata);
   const duration = firstValue(request, metadata, ["seconds", "duration", "Duration"]);
   const scene = firstValue(request, metadata, ["scene", "Scene"]);
