@@ -102,7 +102,7 @@ curl --request POST "$BASE_URL/v1/videos" \
 | `prompt` | 是 | 文生视频提示词。 |
 | `seconds` | 否 | 视频时长；`happyhorse-1.0` 已验证支持 3～15 秒。 |
 | `size` | 否 | 如 `1280x720`（720P）、`1920x1080`（1080P）。 |
-| `resolution` | 否 | 也可直接填写 `720P` 或 `1080P`。 |
+| `resolution` | 否 | 可填写 `720P` 或 `1080P`；不支持的值返回 400。 |
 | `aspect_ratio` | 否 | 按模型能力 Map 校验：Wonder 三个版本额外支持 `21:9`；Wan3.0 仅支持基础 5 种；HappyHorse 额外支持 `21:9`、`5:4`、`4:5`。其他值返回 400。 |
 | `scene` | 否 | 场景类型，默认 `general`。 |
 
@@ -272,7 +272,7 @@ curl --request POST "$BASE_URL/komyvo/v1/images" \
 |---|---:|---|
 | `model` | 是 | 图片模型 ID，必须使用上面的名称。 |
 | `prompt` | 是 | 文生图片提示词。 |
-| `resolution` | 否 | `1K`、`2K` 或 `4K`，默认 `1K`。 |
+| `resolution` | 否 | `1K`、`2K` 或 `4K`，默认 `1K`；不支持的值返回 400。 |
 | `size` | 否 | 也可使用尺寸表达，例如 `1024x1024`。 |
 | `aspect_ratio` | 否 | 按图片模型能力 Map 校验；当前 `qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`，其他模型暂按基础 5 种处理。 |
 | `scene` | 否 | 场景类型，默认 `general`。 |
@@ -349,7 +349,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.7.0` 已支持按模型 Map 严格校验宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.7.1` 已支持按模型 Map 严格校验分辨率、宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 

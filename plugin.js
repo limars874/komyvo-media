@@ -79,7 +79,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.0",
+  version: "0.7.1",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: ALL_MODELS,
@@ -372,10 +372,14 @@ function modelIsImage(model) {
   return IMAGE_MODELS.includes(trimmed(model));
 }
 
+function sizeParts(value) {
+  return trimmed(value).replace("*", "x").toLowerCase().split("x");
+}
+
 function normalizeVideoResolution(value) {
   const raw = trimmed(value).toUpperCase();
   if (VIDEO_RESOLUTIONS.includes(raw)) return raw;
-  const match = raw.replace("*", "x").split("x");
+  const match = sizeParts(raw);
   if (match.length === 2) {
     const max = Math.max(Number(match[0]), Number(match[1]));
     if (max >= 1920) return "1080P";
@@ -387,7 +391,7 @@ function normalizeVideoResolution(value) {
 function normalizeImageResolution(value) {
   const raw = trimmed(value).toUpperCase();
   if (IMAGE_RESOLUTIONS.includes(raw)) return raw;
-  const match = raw.replace("*", "x").split("x");
+  const match = sizeParts(raw);
   if (match.length === 2) {
     const max = Math.max(Number(match[0]), Number(match[1]));
     if (max >= 3840) return "4K";
@@ -396,8 +400,25 @@ function normalizeImageResolution(value) {
   return "1K";
 }
 
-function aspectRatioFromSize(value, allowedRatios) {
-  const parts = trimmed(value).replace("*", "x").split("x");
+function strictResolution(value, capability, image) {
+  const raw = trimmed(value).toUpperCase();
+  const defaults = image ? "1K" : "720P";
+  if (!raw) return capability.resolutions.includes(defaults) ? defaults : capability.resolutions[0];
+  if (capability.resolutions.includes(raw)) return raw;
+  const parts = sizeParts(raw);
+  if (parts.length !== 2) throw new Error("resolution must be one of: " + capability.resolutions.join(", ") + " or a valid WxH size");
+  const width = Number(parts[0]);
+  const height = Number(parts[1]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    throw new Error("resolution must be one of: " + capability.resolutions.join(", ") + " or a valid WxH size");
+  const normalized = image ? normalizeImageResolution(raw) : normalizeVideoResolution(raw);
+  if (!capability.resolutions.includes(normalized))
+    throw new Error("resolution " + raw + " maps to unsupported tier " + normalized + "; allowed: " + capability.resolutions.join(", "));
+  return normalized;
+}
+
+function aspectRatioFromSize(value, allowedRatios, strict) {
+  const parts = sizeParts(value);
   if (parts.length !== 2) return "";
   const width = Number(parts[0]);
   const height = Number(parts[1]);
@@ -414,7 +435,9 @@ function aspectRatioFromSize(value, allowedRatios) {
       distance = difference;
     }
   }
-  return distance < 0.08 ? closest : "";
+  if (distance < 0.08) return closest;
+  if (strict) throw new Error("size aspect ratio must be one of: " + allowedRatios.join(", "));
+  return "";
 }
 
 function validateAspectRatio(value, capability) {
@@ -669,11 +692,11 @@ function buildFields(ctx) {
     ? (images.length ? "image_to_image" : "text_to_image")
     : videoTaskAction(images, videos, audios, capability);
   const size = firstValue(request, metadata, ["size", "Size"]);
-  const resolution = outputImage
-    ? normalizeImageResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size)
-    : normalizeVideoResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size);
+  const resolutionInput = firstValue(request, metadata, ["resolution", "Resolution"]);
+  const resolution = strictResolution(resolutionInput || size, capability, outputImage);
   const ratioInput = firstValue(request, metadata, ["aspect_ratio", "aspectRatio", "AspectRatio", "ratio", "Ratio"]);
-  const ratio = validateAspectRatio(ratioInput || aspectRatioFromSize(size, capability.aspectRatios), capability);
+  const ratioSize = size || (/x/i.test(trimmed(resolutionInput)) ? resolutionInput : "");
+  const ratio = validateAspectRatio(ratioInput || aspectRatioFromSize(ratioSize, capability.aspectRatios, true), capability);
   const outputCount = assertSingleOutput(request, metadata);
   const duration = firstValue(request, metadata, ["seconds", "duration", "Duration"]);
   const scene = firstValue(request, metadata, ["scene", "Scene"]);
