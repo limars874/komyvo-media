@@ -386,3 +386,5 @@ completed
 视频：GET /v1/videos/:task_id/content
 图片：GET /v1/tasks/:task_id/artifacts，再访问 image artifact content_url
 ```
+
+提交后与第一次查询之间间隔极短时，首次返回 `unknown` 通常是正常的异步状态同步现象，继续查询即可。
