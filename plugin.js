@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.2",
+  version: "0.7.3",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -534,7 +534,7 @@ function nativeTextTask(ctx, kind) {
   const requestedModel = trimmed(ctx.upstreamModel || body.model);
   if (!requestedModel) throw new Error("model is required");
   const capability = capabilityFor(requestedModel);
-  const model = capability.model;
+  const model = requestedModel;
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
@@ -581,7 +581,6 @@ function openaiVideoTask(ctx) {
   const videos = media.videos;
   const audios = media.audios;
   const capability = capabilityFor(ctx.upstreamModel || ctx.model);
-  const model = capability.model;
   const action = videoTaskAction(images, videos, audios, capability);
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
@@ -590,9 +589,9 @@ function openaiVideoTask(ctx) {
     throw new Error("seconds must be between 1 and 3600");
   return {
     kind: "submit",
-    model: model,
+    model: ctx.model,
     action: action,
-    requestBody: Object.assign({}, body, { model: model, prompt: prompt, seconds: seconds, images: images, videos: videos, audios: audios }),
+    requestBody: Object.assign({}, body, { model: ctx.model, prompt: prompt, seconds: seconds, images: images, videos: videos, audios: audios }),
   };
 }
 
@@ -642,16 +641,15 @@ function responsesTask(ctx) {
   const prompt = input.prompt || trimmed(body.prompt);
   if (!prompt) throw new Error("input is required");
   const capability = capabilityFor(ctx.upstreamModel || ctx.model);
-  const model = capability.model;
   const action = videoTaskAction(input.images, input.videos, input.audios, capability);
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
   if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
     throw new Error("seconds must be between 1 and 3600");
   return {
     kind: "submit",
-    model: model,
+    model: ctx.model,
     action: action,
-    requestBody: { model: model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, audios: input.audios, metadata: body.metadata || {} },
+    requestBody: { model: ctx.model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, audios: input.audios, metadata: body.metadata || {} },
   };
 }
 
