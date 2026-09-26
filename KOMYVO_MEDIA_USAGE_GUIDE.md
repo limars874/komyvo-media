@@ -247,6 +247,8 @@ Wonder-Image-Pro
 
 公开别名：`komyvo-gpt-image-2` → `Wonder-Image-2`、`komyvo-gemini-2.5-flash-image` → `Wonder-Image-Pro`。
 
+`qwen-image-2.0` 和 `qwen-image-3.0` 的图生图最多支持 3 张输入图片。
+
 当前支持**文生图片**和**图生图**，输出异步任务，通常为 PNG；不需要填写 `ImportMedia` 或 `MediaId`。
 
 图片接口使用 Plugin 声明的原生路由，不是标准 OpenAI 的 `/v1/images`：
@@ -353,7 +355,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.7.4` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比、多媒体输入和 `content[]` 项类型：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.7.5` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比、多媒体输入和 `content[]` 项类型；Qwen 图片模型最多接受 3 张输入图片：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
