@@ -35,12 +35,9 @@ Wonder-Standard
 wan3.0-video
 happyhorse-1.0
 happyhorse-1.1
-
-# 公开别名
- doubao-seedance-2-5       → Wonder-Ultra
- doubao-seedance-2-0       → Wonder-Pro
- doubao-seedance-2-0-fast  → Wonder-Standard
 ```
+
+公开别名：`doubao-seedance-2-5` → `Wonder-Ultra`、`doubao-seedance-2-0` → `Wonder-Pro`、`doubao-seedance-2-0-fast` → `Wonder-Standard`。
 
 当前支持**文生视频**、**图生视频**、多媒体参考生视频、音频参考和带 `role` 的**首尾帧请求**，每个任务固定只生成一个输出，输出异步任务，通常为 MP4；当前不支持 `MediaId`、`ImportMedia`、文档或网页输入。多媒体数量和混合规则由模型能力 Map 校验。
 
@@ -246,11 +243,9 @@ qwen-image-3.0
 qwen-image-2.0
 Wonder-Image-2
 Wonder-Image-Pro
-
-# 公开别名
-komyvo-gpt-image-2             → Wonder-Image-2
-komyvo-gemini-2.5-flash-image  → Wonder-Image-Pro
 ```
+
+公开别名：`komyvo-gpt-image-2` → `Wonder-Image-2`、`komyvo-gemini-2.5-flash-image` → `Wonder-Image-Pro`。
 
 当前支持**文生图片**和**图生图**，输出异步任务，通常为 PNG；不需要填写 `ImportMedia` 或 `MediaId`。
 
@@ -358,7 +353,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.7.2` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.7.3` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
