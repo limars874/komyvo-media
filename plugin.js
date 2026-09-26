@@ -68,6 +68,23 @@ const IMAGE_MODELS = Object.keys(MODEL_CAPABILITIES).filter(function (model) {
   return MODEL_CAPABILITIES[model].kind === "image";
 });
 const ALL_MODELS = Object.keys(MODEL_CAPABILITIES);
+const MODEL_ALIASES = {
+  "doubao-seedance-2-5": "Wonder-Ultra",
+  "doubao-seedance-2-0": "Wonder-Pro",
+  "doubao-seedance-2-0-fast": "Wonder-Standard",
+  "komyvo-gpt-image-2": "Wonder-Image-2",
+  "komyvo-gemini-2.5-flash-image": "Wonder-Image-Pro",
+};
+const ALIAS_MODELS = Object.keys(MODEL_ALIASES);
+const VIDEO_ALIASES = ALIAS_MODELS.filter(function (model) {
+  return MODEL_CAPABILITIES[MODEL_ALIASES[model]].kind === "video";
+});
+const IMAGE_ALIASES = ALIAS_MODELS.filter(function (model) {
+  return MODEL_CAPABILITIES[MODEL_ALIASES[model]].kind === "image";
+});
+const PLUGIN_MODELS = ALL_MODELS.concat(ALIAS_MODELS);
+const VIDEO_ROUTE_MODELS = VIDEO_MODELS.concat(VIDEO_ALIASES);
+const IMAGE_ROUTE_MODELS = IMAGE_MODELS.concat(IMAGE_ALIASES);
 const VIDEO_RESOLUTIONS = ["720P", "1080P"];
 const IMAGE_RESOLUTIONS = ["1K", "2K", "4K"];
 
@@ -79,14 +96,14 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.1",
+  version: "0.7.2",
   author: { name: "Komyvo" },
   auth: "api_key",
-  models: ALL_MODELS,
+  models: PLUGIN_MODELS,
   fetchMode: "per_task",
   usageProfiles: [
     {
-      models: VIDEO_MODELS,
+      models: VIDEO_ROUTE_MODELS,
       schema: {
         seconds: {
           type: "number",
@@ -104,7 +121,7 @@ export const meta = {
       ],
     },
     {
-      models: IMAGE_MODELS,
+      models: IMAGE_ROUTE_MODELS,
       schema: {
         count: {
           type: "number",
@@ -127,7 +144,7 @@ export const meta = {
       action: "text_to_video",
       decode: "createVideoTask",
       render: "taskCreated",
-      models: VIDEO_MODELS,
+      models: VIDEO_ROUTE_MODELS,
     },
     {
       method: "GET",
@@ -142,7 +159,7 @@ export const meta = {
       action: "text_to_image",
       decode: "createImageTask",
       render: "taskCreated",
-      models: IMAGE_MODELS,
+      models: IMAGE_ROUTE_MODELS,
     },
     {
       method: "GET",
@@ -152,8 +169,8 @@ export const meta = {
     },
   ],
   protocols: [
-    { name: "openai_responses", supports: ["stream", "sync", "background"], models: VIDEO_MODELS },
-    { name: "openai_video", models: VIDEO_MODELS },
+    { name: "openai_responses", supports: ["stream", "sync", "background"], models: VIDEO_ROUTE_MODELS },
+    { name: "openai_video", models: VIDEO_ROUTE_MODELS },
   ],
 };
 
@@ -165,11 +182,17 @@ function trimmed(value) {
   return String(value === undefined || value === null ? "" : value).trim();
 }
 
-function capabilityFor(model) {
+function canonicalModel(model) {
   const name = trimmed(model);
+  return MODEL_ALIASES[name] || name;
+}
+
+function capabilityFor(model) {
+  const requestedName = trimmed(model);
+  const name = canonicalModel(requestedName);
   const capability = MODEL_CAPABILITIES[name];
-  if (!capability) throw new Error("unsupported model: " + name);
-  return Object.assign({ model: name }, capability);
+  if (!capability) throw new Error("unsupported model: " + requestedName);
+  return Object.assign({ model: name, requestedModel: requestedName }, capability);
 }
 
 function parseJSON(value) {
@@ -369,7 +392,7 @@ function videoTaskAction(images, videos, audios, capability) {
 }
 
 function modelIsImage(model) {
-  return IMAGE_MODELS.includes(trimmed(model));
+  return IMAGE_MODELS.includes(canonicalModel(model));
 }
 
 function sizeParts(value) {
@@ -508,9 +531,10 @@ function promptFromBody(body) {
 function nativeTextTask(ctx, kind) {
   const body = requestObject(ctx);
   assertSingleOutput(body);
-  const model = trimmed(ctx.upstreamModel || body.model);
-  if (!model) throw new Error("model is required");
-  const capability = capabilityFor(model);
+  const requestedModel = trimmed(ctx.upstreamModel || body.model);
+  if (!requestedModel) throw new Error("model is required");
+  const capability = capabilityFor(requestedModel);
+  const model = capability.model;
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
@@ -557,6 +581,7 @@ function openaiVideoTask(ctx) {
   const videos = media.videos;
   const audios = media.audios;
   const capability = capabilityFor(ctx.upstreamModel || ctx.model);
+  const model = capability.model;
   const action = videoTaskAction(images, videos, audios, capability);
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
@@ -565,9 +590,9 @@ function openaiVideoTask(ctx) {
     throw new Error("seconds must be between 1 and 3600");
   return {
     kind: "submit",
-    model: ctx.model,
+    model: model,
     action: action,
-    requestBody: Object.assign({}, body, { model: ctx.model, prompt: prompt, seconds: seconds, images: images, videos: videos, audios: audios }),
+    requestBody: Object.assign({}, body, { model: model, prompt: prompt, seconds: seconds, images: images, videos: videos, audios: audios }),
   };
 }
 
@@ -617,15 +642,16 @@ function responsesTask(ctx) {
   const prompt = input.prompt || trimmed(body.prompt);
   if (!prompt) throw new Error("input is required");
   const capability = capabilityFor(ctx.upstreamModel || ctx.model);
+  const model = capability.model;
   const action = videoTaskAction(input.images, input.videos, input.audios, capability);
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
   if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
     throw new Error("seconds must be between 1 and 3600");
   return {
     kind: "submit",
-    model: ctx.model,
+    model: model,
     action: action,
-    requestBody: { model: ctx.model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, audios: input.audios, metadata: body.metadata || {} },
+    requestBody: { model: model, prompt: prompt, seconds: seconds, images: input.images, videos: input.videos, audios: input.audios, metadata: body.metadata || {} },
   };
 }
 
@@ -679,11 +705,12 @@ function buildFields(ctx) {
   mergeMedia(images, metadataMedia.images);
   mergeMedia(videos, metadataMedia.videos);
   mergeMedia(audios, metadataMedia.audios);
-  const outputImage = actionIsImage(ctx.action) || modelIsImage(ctx.upstreamModel || ctx.model);
-  const model = trimmed(ctx.upstreamModel || ctx.model || request.model);
+  const requestedModel = trimmed(ctx.upstreamModel || ctx.model || request.model);
+  if (!requestedModel) throw new Error("model is required");
+  const capability = capabilityFor(requestedModel);
+  const model = capability.model;
+  const outputImage = actionIsImage(ctx.action) || capability.kind === "image";
   const prompt = trimmed(request.prompt || promptFromBody(request) || promptFromBody(metadata));
-  if (!model) throw new Error("model is required");
-  const capability = capabilityFor(model);
   if (!prompt) throw new Error("prompt is required");
   validateMediaLimits(capability, images, videos, audios);
   if (outputImage && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");

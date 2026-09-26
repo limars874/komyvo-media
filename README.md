@@ -4,8 +4,9 @@
 
 ## 调用约定
 
-- 视频：`POST /v1/videos`
+- 视频：`POST /v1/videos`；也支持 native route `/komyvo/v1/videos`
 - 图片：`POST /komyvo/v1/images`
+- 公开模型别名：`doubao-seedance-2-5`、`doubao-seedance-2-0`、`doubao-seedance-2-0-fast`、`komyvo-gpt-image-2`、`komyvo-gemini-2.5-flash-image`
 - 媒体输入统一使用 `content[]` 中的公网 `http(s)` URL。
 - 图片、视频和音频输入沿用 Seedance 风格的 `type` + `role` 结构。
 - 单个图片或视频的 `role` 可以省略；首尾帧必须显式使用 `first_frame` 和 `last_frame`。
