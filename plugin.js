@@ -51,13 +51,13 @@ const MODEL_CAPABILITIES = {
     kind: "image",
     resolutions: ["1K", "2K", "4K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
-    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+    input: { images: 3, videos: 0, audios: 0, totalMedia: 3, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
   },
   "qwen-image-3.0": {
     kind: "image",
     resolutions: ["1K", "2K", "4K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "5:4", "4:5", "3:2", "2:3", "21:9"],
-    input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
+    input: { images: 3, videos: 0, audios: 0, totalMedia: 3, mixedMedia: false, videoTotalSeconds: null, audioTotalSeconds: null },
   },
 };
 
@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.4",
+  version: "0.7.5",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
