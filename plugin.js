@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.5",
+  version: "0.7.6",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -694,6 +694,13 @@ function jsonString(value, label) {
   return JSON.stringify(value);
 }
 
+function jobParametersWithAudio(value, enabled) {
+  const parameters = value === undefined ? {} : parseJSON(value);
+  if (!isObject(parameters)) throw new Error("JobParameters must be a JSON object");
+  parameters.EnableAudio = enabled;
+  return JSON.stringify(parameters);
+}
+
 function buildFields(ctx) {
   const request = isObject(ctx.requestBody) ? ctx.requestBody : {};
   const metadata = isObject(request.metadata) ? request.metadata : {};
@@ -728,6 +735,9 @@ function buildFields(ctx) {
   const duration = firstValue(request, metadata, ["seconds", "duration", "Duration"]);
   const scene = firstValue(request, metadata, ["scene", "Scene"]);
   const jobParameters = firstValue(request, metadata, ["jobParameters", "JobParameters", "job_parameters"]);
+  const generateAudio = firstValue(request, metadata, ["generate_audio", "generateAudio", "GenerateAudio"]);
+  if (generateAudio !== undefined && typeof generateAudio !== "boolean") throw new Error("generate_audio must be a boolean");
+  if (outputImage && generateAudio !== undefined) throw new Error("generate_audio is only supported for video generation");
   const vendorAction = outputImage ? "SubmitImageGenerationJob" : "SubmitVideoGenerationJob";
   const fields = {
     Format: "JSON",
@@ -740,7 +750,8 @@ function buildFields(ctx) {
   fields.N = String(outputCount);
   if (!outputImage && duration !== undefined && duration !== null && duration !== "") fields.Duration = String(duration);
   if (scene !== undefined && scene !== null && scene !== "") fields.Scene = String(scene);
-  if (jobParameters !== undefined && jobParameters !== null && jobParameters !== "") fields.JobParameters = jsonString(jobParameters, "JobParameters");
+  if (generateAudio !== undefined) fields.JobParameters = jobParametersWithAudio(jobParameters, generateAudio);
+  else if (jobParameters !== undefined && jobParameters !== null && jobParameters !== "") fields.JobParameters = jsonString(jobParameters, "JobParameters");
   return { action: vendorAction, taskAction: taskAction, fields: fields, model: model, image: outputImage };
 }
 
