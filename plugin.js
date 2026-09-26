@@ -3,19 +3,19 @@ const MODEL_CAPABILITIES = {
     kind: "video",
     resolutions: ["720P", "1080P"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
-    input: { images: 10, videos: 5, audios: 5, totalMedia: null, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+    input: { images: 10, videos: 5, audios: 5, totalMedia: null, mixedMedia: true, videoTotalSeconds: null, audioTotalSeconds: null },
   },
   "Wonder-Pro": {
     kind: "video",
     resolutions: ["720P", "1080P"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
-    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: true, videoTotalSeconds: null, audioTotalSeconds: null },
   },
   "Wonder-Standard": {
     kind: "video",
     resolutions: ["720P", "1080P"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
-    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: null, videoTotalSeconds: null, audioTotalSeconds: null },
+    input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: true, videoTotalSeconds: null, audioTotalSeconds: null },
   },
   "wan3.0-video": {
     kind: "video",
@@ -79,7 +79,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.6.2",
+  version: "0.7.0",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: ALL_MODELS,
@@ -169,7 +169,7 @@ function capabilityFor(model) {
   const name = trimmed(model);
   const capability = MODEL_CAPABILITIES[name];
   if (!capability) throw new Error("unsupported model: " + name);
-  return capability;
+  return Object.assign({ model: name }, capability);
 }
 
 function parseJSON(value) {
@@ -329,10 +329,19 @@ function assertSupportedInput(body) {
   return mediaURLsFromBody(body);
 }
 
-function videoTaskAction(images, videos, audios) {
-  if (images.length && videos.length) throw new Error("image and video references cannot be mixed in this version");
-  if (videos.length > 1) throw new Error("reference_to_video accepts one video URL in this version");
-  if (audios.length > 1) throw new Error("reference_to_video accepts one audio URL in this version");
+function validateMediaLimits(capability, images, videos, audios) {
+  const limits = capability.input;
+  if (images.length > limits.images) throw new Error(capability.model + " accepts at most " + limits.images + " image reference(s)");
+  if (videos.length > limits.videos) throw new Error(capability.model + " accepts at most " + limits.videos + " video reference(s)");
+  if (audios.length > limits.audios) throw new Error(capability.model + " accepts at most " + limits.audios + " audio reference(s)");
+  const total = images.length + videos.length + audios.length;
+  if (limits.totalMedia !== null && total > limits.totalMedia) throw new Error(capability.model + " accepts at most " + limits.totalMedia + " media references");
+  const activeTypes = [images, videos, audios].filter(function (items) { return items.length > 0; }).length;
+  if (limits.mixedMedia === false && activeTypes > 1) throw new Error(capability.model + " does not support mixed media references");
+}
+
+function videoTaskAction(images, videos, audios, capability) {
+  validateMediaLimits(capability, images, videos, audios);
   for (const video of videos) {
     if (video.role && video.role !== "reference_video") throw new Error("video_url role must be reference_video");
   }
@@ -355,10 +364,8 @@ function videoTaskAction(images, videos, audios) {
     if (images.length === 1 && firstFrames.length === 1 && !audios.length && !videos.length) return "image_to_video";
     throw new Error("first_frame cannot be mixed with reference media; use reference_image for multimodal references");
   }
-  if (referenceImages.length && images.length > 1) throw new Error("reference_image accepts one image URL in this version");
-  if (images.length > 1) throw new Error("multiple image URLs require first_frame and last_frame roles");
-  if (videos.length || audios.length || referenceImages.length) return "reference_to_video";
-  return "image_to_video";
+  if (images.length === 1 && !videos.length && !audios.length && !referenceImages.length && untagged.length === 1) return "image_to_video";
+  return "reference_to_video";
 }
 
 function modelIsImage(model) {
@@ -478,19 +485,20 @@ function promptFromBody(body) {
 function nativeTextTask(ctx, kind) {
   const body = requestObject(ctx);
   assertSingleOutput(body);
-  const model = trimmed(body.model);
+  const model = trimmed(ctx.upstreamModel || body.model);
   if (!model) throw new Error("model is required");
+  const capability = capabilityFor(model);
   const media = assertSupportedInput(body);
   const images = media.images;
   const videos = media.videos;
   const audios = media.audios;
+  validateMediaLimits(capability, images, videos, audios);
   if (kind === "image" && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");
-  if (kind === "image" && images.length > 9) throw new Error("image_to_image accepts at most nine image URLs");
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
   const action = kind === "image"
     ? (images.length ? "image_to_image" : "text_to_image")
-    : videoTaskAction(images, videos, audios);
+    : videoTaskAction(images, videos, audios, capability);
   return {
     kind: "submit",
     model: model,
@@ -525,7 +533,8 @@ function openaiVideoTask(ctx) {
   const images = media.images;
   const videos = media.videos;
   const audios = media.audios;
-  const action = videoTaskAction(images, videos, audios);
+  const capability = capabilityFor(ctx.upstreamModel || ctx.model);
+  const action = videoTaskAction(images, videos, audios, capability);
   const prompt = promptFromBody(body);
   if (!prompt) throw new Error("prompt is required");
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
@@ -584,7 +593,8 @@ function responsesTask(ctx) {
   const input = responsesInput(body.input);
   const prompt = input.prompt || trimmed(body.prompt);
   if (!prompt) throw new Error("input is required");
-  const action = videoTaskAction(input.images, input.videos, input.audios);
+  const capability = capabilityFor(ctx.upstreamModel || ctx.model);
+  const action = videoTaskAction(input.images, input.videos, input.audios, capability);
   const seconds = body.seconds === undefined ? body.duration : body.seconds;
   if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
     throw new Error("seconds must be between 1 and 3600");
@@ -652,12 +662,12 @@ function buildFields(ctx) {
   if (!model) throw new Error("model is required");
   const capability = capabilityFor(model);
   if (!prompt) throw new Error("prompt is required");
+  validateMediaLimits(capability, images, videos, audios);
   if (outputImage && (videos.length || audios.length)) throw new Error("image generation does not support video or audio input");
-  if (outputImage && images.length > 9) throw new Error("image_to_image accepts at most nine image URLs");
 
   const taskAction = outputImage
     ? (images.length ? "image_to_image" : "text_to_image")
-    : videoTaskAction(images, videos, audios);
+    : videoTaskAction(images, videos, audios, capability);
   const size = firstValue(request, metadata, ["size", "Size"]);
   const resolution = outputImage
     ? normalizeImageResolution(firstValue(request, metadata, ["resolution", "Resolution"]) || size)

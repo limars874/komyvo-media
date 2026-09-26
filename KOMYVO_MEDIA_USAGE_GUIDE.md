@@ -37,7 +37,7 @@ happyhorse-1.0
 happyhorse-1.1
 ```
 
-当前支持**文生视频**、**图生视频**、单个公开视频 URL 的**参考视频生视频**、音频参考和带 `role` 的**首尾帧请求**，每个任务固定只生成一个输出，输出异步任务，通常为 MP4；当前不支持多个参考视频和 `MediaId`。Komyvo upstream 具体模型是否支持某种输入，以实际能力为准。
+当前支持**文生视频**、**图生视频**、多媒体参考生视频、音频参考和带 `role` 的**首尾帧请求**，每个任务固定只生成一个输出，输出异步任务，通常为 MP4；当前不支持 `MediaId`、`ImportMedia`、文档或网页输入。多媒体数量和混合规则由模型能力 Map 校验。
 
 ### 2.1.1 统一媒体输入格式
 
@@ -54,11 +54,23 @@ happyhorse-1.1
 |---|---|---|
 | `first_frame` | 首帧或单图生视频 | 单图时可省略，默认值为 `first_frame` |
 | `last_frame` | 尾帧 | 必须与一个 `first_frame` 成对出现 |
-| `reference_image` | 参考图片 | 当前只接受一个 |
-| `reference_video` | 参考视频 | 单个视频时可省略，默认值为 `reference_video` |
-| `reference_audio` | 参考音频 | 当前最多一个音频 URL |
+| `reference_image` | 参考图片 | 数量按模型能力 Map；多张图片进入 `reference_to_video` |
+| `reference_video` | 参考视频 | 数量按模型能力 Map；单个视频时可省略 |
+| `reference_audio` | 参考音频 | 数量按模型能力 Map；单个音频时可省略 |
 
-两个图片 URL 不能再只依赖数组顺序判断首尾帧；必须显式填写 `first_frame` 和 `last_frame`。`text` 内容项继续用于提示词，用户不需要填写 Vendor 的 `JobType`、`Input` 或 `MediaId`。
+`first_frame` 与 `last_frame` 必须严格成对，且只能包含两张图片，不能混合其他媒体；一张未标记图片按 `image_to_video` 处理，多张图片或带其他媒体时按 `reference_to_video` 处理。`text` 内容项继续用于提示词，用户不需要填写 Vendor 的 `JobType`、`Input` 或 `MediaId`。
+
+当前视频模型媒体能力 Map：
+
+| 模型 | 图片 | 视频 | 音频 | 总媒体数 | 混合媒体 |
+|---|---:|---:|---:|---:|---|
+| `Wonder-Ultra` | 10 | 5 | 5 | 未确认 | 支持 |
+| `Wonder-Pro` | 9 | 3 | 3 | 15 | 支持 |
+| `Wonder-Standard` | 9 | 3 | 3 | 15 | 支持 |
+| `wan3.0-video` | 10 | 5 | 5 | 20 | 支持 |
+| `happyhorse-1.0/1.1` | 9 | 0 | 0 | 9 | 不支持 |
+
+输入视频/音频累计时长暂不由 Plugin 校验，交给上游处理。
 
 ### 2.2 提交任务
 
@@ -96,7 +108,7 @@ curl --request POST "$BASE_URL/v1/videos" \
 
 ### 2.2.1 图生视频
 
-在同一接口中增加 `content`，图片必须使用公网 URL：
+在同一接口中增加一个或多个 `content` 媒体项，图片必须使用公网 URL：
 
 ```bash
 curl --request POST "$BASE_URL/v1/videos" \
@@ -113,11 +125,11 @@ curl --request POST "$BASE_URL/v1/videos" \
   }'
 ```
 
-`content` 中支持一个 `image_url` 和一个 `text`；`role` 可填写 `first_frame`，省略时默认按首帧处理。Plugin 会自动转换为 Komyvo 的 `image_to_video`，用户不需要填写 `JobType` 或 `MediaId`。
+单图时 `content` 中包含一个 `image_url` 和一个 `text`；多图或图片与视频/音频混合时，Plugin 会自动转换为 Komyvo 的 `reference_to_video`。`role` 可填写 `first_frame`，省略时单图默认按首帧处理。用户不需要填写 `JobType` 或 `MediaId`。
 
 ### 2.2.2 参考视频生视频
 
-在同一接口中传入一个公开视频 URL：
+在同一接口中传入一个或多个公开视频 URL，具体数量受模型能力 Map 限制：
 
 ```bash
 curl --request POST "$BASE_URL/v1/videos" \
@@ -134,7 +146,7 @@ curl --request POST "$BASE_URL/v1/videos" \
   }'
 ```
 
-`video_url` 必须是供应商可访问的公开 `http(s)` URL。`role` 可填写 `reference_video`，省略时默认按参考视频处理。Plugin 会自动转换为 Komyvo 的 `reference_to_video` 和 `Input.Medias[].Type = "video"`；当前版本只接受一个参考视频，暂不接受 `MediaId`、`ImportMedia` 或本地文件上传。
+`video_url` 必须是供应商可访问的公开 `http(s)` URL。`role` 可填写 `reference_video`，省略时默认按参考视频处理。Plugin 会自动转换为 Komyvo 的 `reference_to_video` 和 `Input.Medias[].Type = "video"`；参考视频数量按模型能力 Map 校验，不接受 `MediaId`、`ImportMedia` 或本地文件上传。
 
 ### 2.2.3 音频参考生视频
 
@@ -155,7 +167,7 @@ curl --request POST "$BASE_URL/v1/videos" \
   }'
 ```
 
-`audio_url` 必须是 Vendor 可访问的公开 `http(s)` URL；当前 Plugin 每个任务最多接受一个音频 URL，可与一个参考图片或参考视频组合，具体模型是否支持由 Vendor 决定。Plugin 会转换为 `reference_to_video` 和 `Input.Medias[].Type = "audio"`；不接受本地文件、`MediaId` 或 `ImportMedia`。
+`audio_url` 必须是 Vendor 可访问的公开 `http(s)` URL；音频数量、是否可以和图片/视频混合，均按模型能力 Map 校验。Plugin 会转换为 `reference_to_video` 和 `Input.Medias[].Type = "audio"`；不接受本地文件、`MediaId` 或 `ImportMedia`。
 
 ### 2.2.4 首尾帧生视频
 
@@ -283,7 +295,7 @@ curl --request POST "$BASE_URL/komyvo/v1/images" \
   }'
 ```
 
-`content` 中支持一个 `reference_image` 和文字提示词；Plugin 会自动转换为 Komyvo 的 `image_to_image`，用户不需要填写 `JobType` 或 `MediaId`。
+`content` 中支持一个或多个 `reference_image` 和文字提示词，数量按图片模型能力 Map 校验；Plugin 会自动转换为 Komyvo 的 `image_to_image`，用户不需要填写 `JobType` 或 `MediaId`。
 
 提交成功返回本地任务 ID：
 
@@ -337,7 +349,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.6.2` 已支持按模型 Map 严格校验宽高比：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.7.0` 已支持按模型 Map 严格校验宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
