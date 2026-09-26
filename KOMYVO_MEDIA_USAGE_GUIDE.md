@@ -353,7 +353,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.7.3` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比和多媒体输入：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.7.4` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比、多媒体输入和 `content[]` 项类型：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 ## 4. 常见错误
 
@@ -363,6 +363,8 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 | `aspect_ratio must be one of: ...` | 宽高比不在当前模型能力 Map 允许范围内。 |
 | `model_price_error` | 后台没有为该模型配置完整价格。 |
 | `prompt is required` | 未填写非空 `prompt`。 |
+| `content items must be objects` | native route 的 `content[]` 含有非对象项。 |
+| `content items must be strings or objects` | `/v1/responses` 的输入内容含有不支持的标量项。 |
 | `only public image/video/audio URLs are supported` | 媒体输入必须是 Komyvo upstream 可访问的公网 `http(s)` URL；不接受 `MediaId`、`ImportMedia` 或本地文件。 |
 | `status=failed` | 查看响应中的 `error.message`，通常是模型权限、参数或供应商任务失败。 |
 
