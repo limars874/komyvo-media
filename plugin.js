@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.3",
+  version: "0.7.4",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -277,7 +277,7 @@ function mediaURLsFromContent(content) {
   const videos = [];
   const audios = [];
   for (const item of content) {
-    if (!isObject(item)) continue;
+    if (!isObject(item)) throw new Error("content items must be objects");
     if (item.type === "text" || item.type === "input_text") continue;
     if (item.type === "image_url" || item.type === "input_image") {
       appendImageURL(images, item.image_url === undefined ? item.image : item.image_url, "image_url", item.role);
@@ -607,7 +607,7 @@ function responsesInput(value) {
       if (trimmed(item)) texts.push(trimmed(item));
       continue;
     }
-    if (!isObject(item)) continue;
+    if (!isObject(item)) throw new Error("input items must be strings or objects");
     const parts = Array.isArray(item.content) ? item.content : [item.content === undefined ? item : item.content];
     for (const part of parts) {
       if (typeof part === "string" && trimmed(part)) {
@@ -620,7 +620,9 @@ function responsesInput(value) {
         appendVideoURL(videos, part.video_url === undefined ? part.video : part.video_url, "input video", part.role);
       } else if (isObject(part) && (part.type === "input_audio" || part.type === "audio_url" || part.type === "audio" || Object.prototype.hasOwnProperty.call(part, "audio_url"))) {
         appendAudioURL(audios, part.audio_url === undefined ? part.audio : part.audio_url, "input audio", part.role);
-      } else if (isObject(part) && part.type) {
+      } else if (!isObject(part)) {
+        throw new Error("content items must be strings or objects");
+      } else if (part.type) {
         throw new Error("only text, image_url, video_url, and audio_url content is supported");
       }
     }
