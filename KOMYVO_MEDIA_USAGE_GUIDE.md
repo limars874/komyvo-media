@@ -108,7 +108,7 @@ curl --request POST "$BASE_URL/v1/videos" \
 | `resolution` | 否 | 可填写 `720P` 或 `1080P`；不支持的值返回 400。 |
 | `aspect_ratio` | 否 | 按模型能力 Map 校验：Wonder 三个版本额外支持 `21:9`；Wan3.0 仅支持基础 5 种；HappyHorse 额外支持 `21:9`、`5:4`、`4:5`。其他值返回 400。 |
 | `scene` | 否 | 场景类型，默认 `general`。 |
-| `generate_audio` | 否 | Boolean；`true`/`false` 控制是否生成音频，Plugin 会映射为 Vendor `JobParameters.EnableAudio`。未传时保留 Vendor 默认行为。 |
+| `generate_audio` | 否 | Boolean；`true`/`false` 控制是否生成音频，Plugin 会映射为 Vendor `JobParameters.EnableAudio`。未传时保留 Vendor 默认行为；实测 `happyhorse-1.0` 未传该参数时默认包含音频。 |
 
 ### 2.2.1 图生视频
 
