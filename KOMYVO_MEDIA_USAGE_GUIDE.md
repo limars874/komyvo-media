@@ -247,7 +247,7 @@ Wonder-Image-2
 Wonder-Image-Pro
 ```
 
-公开别名：`komyvo-gpt-image-2` → `Wonder-Image-2`、`komyvo-gemini-2.5-flash-image` → `Wonder-Image-Pro`。
+公开别名：`komyvo-image-2` → `Wonder-Image-2`、`komyvo-image-banana` → `Wonder-Image-Pro`。
 
 `qwen-image-2.0` 和 `qwen-image-3.0` 的图生图最多支持 3 张输入图片。
 

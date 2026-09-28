@@ -72,8 +72,8 @@ const MODEL_ALIASES = {
   "doubao-seedance-2-5": "Wonder-Ultra",
   "doubao-seedance-2-0": "Wonder-Pro",
   "doubao-seedance-2-0-fast": "Wonder-Standard",
-  "komyvo-gpt-image-2": "Wonder-Image-2",
-  "komyvo-gemini-2.5-flash-image": "Wonder-Image-Pro",
+  "komyvo-image-2": "Wonder-Image-2",
+  "komyvo-image-banana": "Wonder-Image-Pro",
 };
 const ALIAS_MODELS = Object.keys(MODEL_ALIASES);
 const VIDEO_ALIASES = ALIAS_MODELS.filter(function (model) {
@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.6",
+  version: "0.7.7",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
