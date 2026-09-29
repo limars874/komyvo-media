@@ -92,7 +92,7 @@ const VIDEO_USAGE_SCHEMA = {
   seconds: {
     type: "number",
     unit: "second",
-    description: { en: "Output video duration", zh: "输出视频时长" },
+    description: { en: "Duration billing", zh: "时长计费" },
   },
   resolution: {
     enum: VIDEO_RESOLUTIONS,
@@ -100,12 +100,31 @@ const VIDEO_USAGE_SCHEMA = {
   },
   credits: {
     type: "number",
-    unit: "credit",
-    description: { en: "Actual upstream credits", zh: "上游实际消耗积分" },
+    unit: "count",
+    unitLabel: { en: "credits", zh: "积分" },
+    description: { en: "Credit billing", zh: "积分计费" },
   },
   credit_source: {
     enum: ["estimated", "actual"],
     description: { en: "Credit source", zh: "积分来源" },
+  },
+  billing_basis: {
+    enum: ["actual_credit", "estimated_720P", "estimated_1080P"],
+    description: { en: "Billing basis", zh: "计费依据" },
+    enumLabels: {
+      actual_credit: {
+        en: "Final charge: upstream credit settlement",
+        zh: "最终扣费：上游积分结算",
+      },
+      estimated_720P: {
+        en: "Precharge estimate: 720P",
+        zh: "预扣估算：720P",
+      },
+      estimated_1080P: {
+        en: "Precharge estimate: 1080P",
+        zh: "预扣估算：1080P",
+      },
+    },
   },
 };
 
@@ -150,7 +169,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.7",
+  version: "0.8.8",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
