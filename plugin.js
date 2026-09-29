@@ -187,8 +187,8 @@ export const meta = {
       models: VIDEO_ROUTE_MODELS.filter(function (model) { return model !== "happyhorse-1.0"; }),
       schema: VIDEO_USAGE_SCHEMA,
       examples: [
-        { label: "720P · 3s · estimated", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated" } },
-        { label: "720P · 5s · actual", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual" } },
+        { label: "720P · 3s · estimated", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated", billing_basis: "estimated_720P" } },
+        { label: "720P · 5s · actual", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual", billing_basis: "actual_credit" } },
       ],
     },
     {
