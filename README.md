@@ -12,5 +12,6 @@
 - 单个图片或视频的 `role` 可以省略；首尾帧必须显式使用 `first_frame` 和 `last_frame`。
 - 每个任务固定只生成一个输出，不对外支持 `n/N` 多输出参数。
 - 客户端只提交媒体 URL，不提交 `MediaId`、`ImportMedia` 或 Vendor 内部字段。
+- 视频按“预扣秒数/分辨率 → 终态查询 `GetYikeJobCredit` → 实际 Credit 结算”处理；图片继续按数量与分辨率计费。
 
 完整的请求示例、任务查询和结果下载方式见[操作文档](KOMYVO_MEDIA_USAGE_GUIDE.md)。

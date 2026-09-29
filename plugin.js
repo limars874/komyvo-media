@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.7.7",
+  version: "0.8.0",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -114,10 +114,19 @@ export const meta = {
           enum: VIDEO_RESOLUTIONS,
           description: { en: "Output video resolution", zh: "输出视频分辨率" },
         },
+        credits: {
+          type: "number",
+          unit: "credit",
+          description: { en: "Actual upstream credits", zh: "上游实际消耗积分" },
+        },
+        credit_source: {
+          enum: ["estimated", "actual"],
+          description: { en: "Credit source", zh: "积分来源" },
+        },
       },
       examples: [
-        { label: "720P · 3s", facts: { seconds: 3, resolution: "720P" } },
-        { label: "720P · 5s", facts: { seconds: 5, resolution: "720P" } },
+        { label: "720P · 3s · estimated", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated" } },
+        { label: "720P · 5s · actual", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual" } },
       ],
     },
     {
@@ -804,9 +813,26 @@ function normalizedStatus(status) {
   return { status: "UNKNOWN", progress: "0%" };
 }
 
+function pendingCreditState(ctx) {
+  const state = ctx && ctx.state;
+  return isObject(state) && state.creditPhase === "pending" ? state : null;
+}
+
+function vendorBodyFromState(state) {
+  return isObject(state) && isObject(state.vendorBody) ? state.vendorBody : null;
+}
+
+function resultURLFromState(state, index) {
+  return mediaURL(parseTaskEnvelope(vendorBodyFromState(state)).output, index);
+}
+
 function resultURLFromTaskData(data, index) {
   const parsed = parseTaskEnvelope(data);
   return mediaURL(parsed.output, index);
+}
+
+function resultURLFromTaskContext(ctx, data, index) {
+  return resultURLFromTaskData(data, index) || resultURLFromState(ctx && ctx.state, index);
 }
 
 function renderCreated(task) {
@@ -832,7 +858,7 @@ function renderStatus(ctx, task) {
     created_at: task.created_at,
     completed_at: task.updated_at,
   };
-  const url = resultURLFromTaskData(task.data, 0);
+  const url = resultURLFromTaskContext(ctx, task.data, 0);
   if (kind === "image" && url && result.status === "SUCCESS") output.data = [{ url: url }];
   if (kind === "video" && url && result.status === "SUCCESS") output.video_url = url;
   if (result.status === "FAILURE") output.error = { message: task.fail_reason || "task failed" };
@@ -890,9 +916,57 @@ export function parseSubmitResponse(_ctx, response) {
   };
 }
 
+const MAX_CREDIT_QUERY_ATTEMPTS = 5;
+
+function creditQueryResult(ctx, body, response, state) {
+  const value = parseJSON(body);
+  const creditStatus = trimmed(isObject(value) ? value.CreditStatus || value.creditStatus : "").toLowerCase();
+  const cost = Number(isObject(value) ? (value.JobCreditCost === undefined ? value.jobCreditCost : value.JobCreditCost) : NaN);
+  if (creditStatus === "success" && Number.isFinite(cost) && cost >= 0) {
+    return {
+      taskId: ctx.taskId,
+      status: "SUCCESS",
+      progress: "100%",
+      url: resultURLFromState(state, 0),
+      remoteUrl: resultURLFromState(state, 0),
+      state: Object.assign({}, state, { creditPhase: "settled", creditSource: "actual", creditCost: cost }),
+    };
+  }
+
+  const attempts = Number(state.creditAttempts || 0) + 1;
+  const code = trimmed(isObject(value) ? value.Code || value.code : "");
+  const message = trimmed(isObject(value) ? value.Message || value.message || value.ErrorMessage || value.errorMessage : "");
+  const retryable = creditStatus === "init" || !creditStatus || (response && Number(response.status) >= 400);
+  if (!retryable || attempts >= MAX_CREDIT_QUERY_ATTEMPTS) {
+    return {
+      taskId: ctx.taskId,
+      status: "SUCCESS",
+      progress: "100%",
+      url: resultURLFromState(state, 0),
+      remoteUrl: resultURLFromState(state, 0),
+      state: Object.assign({}, state, {
+        creditPhase: "settled",
+        creditSource: "estimated",
+        creditFallbackReason: code ? code + (message ? ": " + message : "") : creditStatus || "credit query failed",
+      }),
+    };
+  }
+
+  return {
+    taskId: ctx.taskId,
+    status: "IN_PROGRESS",
+    progress: "99%",
+    state: Object.assign({}, state, { creditAttempts: attempts }),
+  };
+}
+
 export function buildQueryRequest(ctx) {
-  const image = kindFromContext(ctx) === "image";
-  const action = image ? "GetImageGenerationJob" : "GetVideoGenerationJob";
+  const pending = pendingCreditState(ctx);
+  const action = pending
+    ? "GetYikeJobCredit"
+    : kindFromContext(ctx) === "image"
+      ? "GetImageGenerationJob"
+      : "GetVideoGenerationJob";
   return {
     url: queryURL(ctx.baseUrl, { Format: "JSON", JobId: ctx.taskId }),
     method: "POST",
@@ -902,8 +976,22 @@ export function buildQueryRequest(ctx) {
 }
 
 export function parseTaskResult(ctx, body, response) {
+  const pending = pendingCreditState(ctx);
+  if (pending) return creditQueryResult(ctx, body, response, pending);
+
   const parsed = parseTaskEnvelope(body);
   const status = normalizedStatus(parsed.job.Status || parsed.job.status);
+  if (status.status === "SUCCESS" && kindFromContext(ctx) !== "image") {
+    const url = mediaURL(parsed.output, 0);
+    return {
+      taskId: ctx.taskId,
+      status: "IN_PROGRESS",
+      progress: "99%",
+      url: url,
+      remoteUrl: url,
+      state: { creditPhase: "pending", creditAttempts: 0, vendorBody: parsed.raw },
+    };
+  }
   if (status.status === "SUCCESS") {
     return {
       taskId: ctx.taskId,
@@ -927,7 +1015,7 @@ export function parseTaskResult(ctx, body, response) {
 
 export function listArtifacts(task) {
   if (task.status !== "SUCCESS") return [];
-  const parsed = parseTaskEnvelope(task.data);
+  const parsed = parseTaskEnvelope(vendorBodyFromState(task.state) || task.data);
   const kind = actionIsImage(task.action) ? "image" : "video";
   const items = mediaList(parsed.output);
   const artifacts = [];
@@ -942,7 +1030,7 @@ export function buildContentRequest(ctx) {
   const match = /^(video|image)(?:_(\d+))?$/.exec(trimmed(ctx.artifactKey));
   if (!match) throw new Error("artifact_not_found");
   const index = match[2] === undefined ? 0 : Number(match[2]);
-  const url = resultURLFromTaskData(ctx.data, index);
+  const url = resultURLFromTaskContext(ctx, ctx.data, index);
   if (!url) throw new Error("artifact_not_found");
   return { url: url, method: ctx.clientRequest.method, credentialless: true };
 }
@@ -959,20 +1047,25 @@ export function extractUsage(ctx) {
   }
   const seconds = numberValue(firstValue(request, metadata, ["seconds", "duration", "Duration"]), 5);
   const resolution = normalizeVideoResolution(firstValue(request, metadata, ["resolution", "Resolution", "size", "Size"]));
-  return { seconds: seconds, resolution: resolution };
+  return { seconds: seconds, resolution: resolution, credits: 0, credit_source: "estimated" };
 }
 
 export function extractUsageOnComplete(ctx, result, body) {
   if (!result || result.status !== "SUCCESS") return {};
-  const parsed = parseTaskEnvelope(body);
   const image = kindFromContext(ctx) === "image";
+  const vendorBody = vendorBodyFromState(ctx.state) || body;
+  const parsed = parseTaskEnvelope(vendorBody);
   if (image) {
     const count = mediaList(parsed.output).length;
     return count > 0 ? { count: count } : {};
   }
+  if (isObject(ctx.state) && ctx.state.creditSource === "actual") {
+    const credits = Number(ctx.state.creditCost);
+    return Number.isFinite(credits) && credits >= 0 ? { credits: credits, credit_source: "actual" } : { credit_source: "estimated" };
+  }
   const seconds = numberValue(parsed.job.Duration || parsed.job.duration || parsed.output.Duration || parsed.output.duration, 0);
   const resolution = parsed.job.Resolution || parsed.job.resolution || parsed.output.Resolution || parsed.output.resolution;
-  const facts = {};
+  const facts = { credit_source: "estimated" };
   if (seconds > 0) facts.seconds = seconds;
   if (resolution) facts.resolution = normalizeVideoResolution(resolution);
   return facts;
