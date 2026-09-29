@@ -111,7 +111,7 @@ const VIDEO_USAGE_SCHEMA = {
 
 const HAPPYHORSE_VIDEO_USAGE_SCHEMA = Object.assign({}, VIDEO_USAGE_SCHEMA, {
   seconds: Object.assign({}, VIDEO_USAGE_SCHEMA.seconds, {
-    description: { en: "Output duration", zh: "输出时长" },
+    description: { en: "Duration billing", zh: "时长计费" },
   }),
   resolution: Object.assign({}, VIDEO_USAGE_SCHEMA.resolution, {
     description: { en: "Output resolution", zh: "输出分辨率" },
@@ -120,7 +120,7 @@ const HAPPYHORSE_VIDEO_USAGE_SCHEMA = Object.assign({}, VIDEO_USAGE_SCHEMA, {
     type: "number",
     unit: "count",
     unitLabel: { en: "credits", zh: "积分" },
-    description: { en: "Actual upstream credits", zh: "上游实际积分" },
+    description: { en: "Credit billing", zh: "积分计费" },
   }),
   billing_basis: {
     enum: ["actual_credit", "estimated_720P", "estimated_1080P"],
@@ -150,7 +150,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.6",
+  version: "0.8.7",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
