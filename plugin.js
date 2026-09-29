@@ -117,21 +117,29 @@ const HAPPYHORSE_VIDEO_USAGE_SCHEMA = Object.assign({}, VIDEO_USAGE_SCHEMA, {
     description: { en: "Output resolution", zh: "输出分辨率" },
   }),
   credits: Object.assign({}, VIDEO_USAGE_SCHEMA.credits, {
+    type: "number",
+    unit: "count",
+    unitLabel: { en: "credits", zh: "积分" },
     description: { en: "Actual upstream credits", zh: "上游实际积分" },
   }),
-  credit_source: Object.assign({}, VIDEO_USAGE_SCHEMA.credit_source, {
+  billing_basis: {
+    enum: ["actual_credit", "estimated_720P", "estimated_1080P"],
     description: { en: "Billing basis", zh: "计费依据" },
     enumLabels: {
-      estimated: {
-        en: "Billing basis: duration/resolution estimate",
-        zh: "计费依据：时长/分辨率估算",
+      actual_credit: {
+        en: "Final charge: upstream credit settlement",
+        zh: "最终扣费：上游积分结算",
       },
-      actual: {
-        en: "Billing basis: upstream Credit settlement",
-        zh: "计费依据：上游 Credit 结算",
+      estimated_720P: {
+        en: "Precharge estimate: 720P",
+        zh: "预扣估算：720P",
+      },
+      estimated_1080P: {
+        en: "Precharge estimate: 1080P",
+        zh: "预扣估算：1080P",
       },
     },
-  }),
+  },
 });
 
 export const meta = {
@@ -142,7 +150,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.5",
+  version: "0.8.6",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -152,8 +160,8 @@ export const meta = {
       models: ["happyhorse-1.0"],
       schema: HAPPYHORSE_VIDEO_USAGE_SCHEMA,
       examples: [
-        { label: "720P · 3s · 预扣", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated" } },
-        { label: "720P · 5s · 实际", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual" } },
+        { label: "720P · 3s · 预扣", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated", billing_basis: "estimated_720P" } },
+        { label: "720P · 5s · 实际", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual", billing_basis: "actual_credit" } },
       ],
     },
     {
@@ -453,6 +461,10 @@ function normalizeVideoResolution(value) {
     if (max > 0) return "720P";
   }
   return "720P";
+}
+
+function estimatedBillingBasis(resolution) {
+  return resolution === "1080P" ? "estimated_1080P" : "estimated_720P";
 }
 
 function normalizeImageResolution(value) {
@@ -1097,7 +1109,7 @@ export function extractUsage(ctx) {
   }
   const seconds = numberValue(firstValue(request, metadata, ["seconds", "duration", "Duration"]), 5);
   const resolution = normalizeVideoResolution(firstValue(request, metadata, ["resolution", "Resolution", "size", "Size"]));
-  return { seconds: seconds, resolution: resolution, credits: 0, credit_source: "estimated" };
+  return { seconds: seconds, resolution: resolution, credits: 0, credit_source: "estimated", billing_basis: estimatedBillingBasis(resolution) };
 }
 
 export function extractUsageOnComplete(ctx, result, body) {
@@ -1119,9 +1131,13 @@ export function extractUsageOnComplete(ctx, result, body) {
     ? { credits: Number(ctx.state.creditCost) }
     : creditSettlementFromBody(body);
   if (settled && Number.isFinite(settled.credits) && settled.credits >= 0) {
-    return Object.assign({}, facts, { credits: settled.credits, credit_source: "actual" });
+    return Object.assign({}, facts, { credits: settled.credits, credit_source: "actual", billing_basis: "actual_credit" });
   }
-  return Object.assign({}, facts, { credits: 0, credit_source: "estimated" });
+  return Object.assign({}, facts, {
+    credits: 0,
+    credit_source: "estimated",
+    billing_basis: estimatedBillingBasis(facts.resolution || "720P"),
+  });
 }
 
 function videoArtifactText(ctx) {
