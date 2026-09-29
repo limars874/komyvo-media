@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.1",
+  version: "0.8.2",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -822,6 +822,13 @@ function vendorBodyFromState(state) {
   return isObject(state) && isObject(state.vendorBody) ? state.vendorBody : null;
 }
 
+function creditSettlementFromBody(body) {
+  const value = parseJSON(body);
+  if (!isObject(value) || trimmed(value.CreditStatus || value.creditStatus).toLowerCase() !== "success") return null;
+  const cost = Number(value.JobCreditCost === undefined ? value.jobCreditCost : value.JobCreditCost);
+  return Number.isFinite(cost) && cost >= 0 ? { credits: cost } : null;
+}
+
 function resultURLFromState(state, index) {
   return mediaURL(parseTaskEnvelope(vendorBodyFromState(state)).output, index);
 }
@@ -1068,18 +1075,18 @@ export function extractUsageOnComplete(ctx, result, body) {
     return count > 0 ? { count: count } : {};
   }
   const initialUsage = isObject(ctx.state) && isObject(ctx.state.initialUsage) ? ctx.state.initialUsage : {};
-  if (isObject(ctx.state) && ctx.state.creditSource === "actual") {
-    const credits = Number(ctx.state.creditCost);
-    return Number.isFinite(credits) && credits >= 0
-      ? Object.assign({}, initialUsage, { credits: credits, credit_source: "actual" })
-      : Object.assign({}, initialUsage, { credit_source: "estimated" });
-  }
   const seconds = numberValue(parsed.job.Duration || parsed.job.duration || parsed.output.Duration || parsed.output.duration, 0);
   const resolution = parsed.job.Resolution || parsed.job.resolution || parsed.output.Resolution || parsed.output.resolution;
-  const facts = Object.assign({}, initialUsage, { credit_source: "estimated" });
+  const facts = Object.assign({}, initialUsage);
   if (seconds > 0) facts.seconds = seconds;
   if (resolution) facts.resolution = normalizeVideoResolution(resolution);
-  return facts;
+  const settled = isObject(ctx.state) && ctx.state.creditSource === "actual"
+    ? { credits: Number(ctx.state.creditCost) }
+    : creditSettlementFromBody(body);
+  if (settled && Number.isFinite(settled.credits) && settled.credits >= 0) {
+    return Object.assign({}, facts, { credits: settled.credits, credit_source: "actual" });
+  }
+  return Object.assign({}, facts, { credits: 0, credit_source: "estimated" });
 }
 
 function videoArtifactText(ctx) {
