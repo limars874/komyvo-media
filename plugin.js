@@ -111,28 +111,19 @@ const VIDEO_USAGE_SCHEMA = {
 
 const HAPPYHORSE_VIDEO_USAGE_SCHEMA = Object.assign({}, VIDEO_USAGE_SCHEMA, {
   seconds: Object.assign({}, VIDEO_USAGE_SCHEMA.seconds, {
-    description: {
-      en: "Output video duration (precharge/fallback only)",
-      zh: "输出视频时长（仅用于预扣或查询失败回退）",
-    },
+    description: { en: "Output duration", zh: "输出时长" },
   }),
   resolution: Object.assign({}, VIDEO_USAGE_SCHEMA.resolution, {
-    description: {
-      en: "Output video resolution (precharge/fallback only)",
-      zh: "输出视频分辨率（仅用于预扣或查询失败回退）",
-    },
+    description: { en: "Output resolution", zh: "输出分辨率" },
   }),
   credits: Object.assign({}, VIDEO_USAGE_SCHEMA.credits, {
-    description: {
-      en: "Actual upstream credits (settled after completion)",
-      zh: "上游实际消耗积分（任务完成后结算）",
-    },
+    description: { en: "Actual upstream credits", zh: "上游实际积分" },
   }),
   credit_source: Object.assign({}, VIDEO_USAGE_SCHEMA.credit_source, {
-    description: { en: "Settlement source", zh: "结算来源" },
+    description: { en: "Credit source", zh: "积分来源" },
     enumLabels: {
-      estimated: "积分来源：预扣/查询失败回退估算",
-      actual: "积分来源：上游实际返回（终态结算）",
+      estimated: "积分来源：预扣估算",
+      actual: "积分来源：实际结算",
     },
   }),
 });
@@ -145,7 +136,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.3",
+  version: "0.8.4",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
@@ -155,8 +146,8 @@ export const meta = {
       models: ["happyhorse-1.0"],
       schema: HAPPYHORSE_VIDEO_USAGE_SCHEMA,
       examples: [
-        { label: "720P · 3s · estimated（预扣/回退）", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated" } },
-        { label: "720P · 5s · actual（上游结算）", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual" } },
+        { label: "720P · 3s · 预扣", facts: { seconds: 3, resolution: "720P", credits: 0, credit_source: "estimated" } },
+        { label: "720P · 5s · 实际", facts: { seconds: 5, resolution: "720P", credits: 36, credit_source: "actual" } },
       ],
     },
     {

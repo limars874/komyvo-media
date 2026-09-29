@@ -357,7 +357,7 @@ curl --location "$BASE_URL$CONTENT_PATH" \
 
 `content_url` 中的 `access` 是短期访问凭证，不要公开或长期保存。
 
-当前 Plugin `0.8.3` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比、多媒体输入和 `content[]` 项类型；Qwen 图片模型最多接受 3 张输入图片：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
+当前 Plugin `0.8.4` 已支持模型别名在 native route 中直接使用，并按模型 Map 严格校验分辨率、宽高比、多媒体输入和 `content[]` 项类型；Qwen 图片模型最多接受 3 张输入图片：Wonder 三个版本额外支持 `21:9`，Wan3.0 保持基础 5 种，HappyHorse 额外支持 `21:9`、`5:4`、`4:5`，`qwen-image-3.0` 额外支持 `5:4`、`4:5`、`3:2`、`2:3`、`21:9`。后续只需调整 Plugin 内的模型能力 Map 即可扩展供应商已确认的比例。Plugin 同时支持图生图和音频参考输入，并将每个任务的输出数量固定为 1；完成任务后返回 `object=image` 和 `data[].url`。图片下载仍建议使用 artifact 接口，以获得统一的内容代理和短期访问 URL。
 
 视频任务采用两阶段计费：提交阶段按现有秒数/分辨率价格预扣；上游任务完成后，Plugin 追加调用 `GetYikeJobCredit`，成功时使用实际 `JobCreditCost` 结算，积分查询失败则回退预扣公式。当前按 `1 Credit = ¥0.1`、固定 `USDExchangeRate = 7.3` 换算为 USD（`0.013698630137 USD/Credit`）；图片任务继续按 `count × resolution` 公式结算。
 
