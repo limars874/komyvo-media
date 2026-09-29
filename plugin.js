@@ -120,10 +120,16 @@ const HAPPYHORSE_VIDEO_USAGE_SCHEMA = Object.assign({}, VIDEO_USAGE_SCHEMA, {
     description: { en: "Actual upstream credits", zh: "上游实际积分" },
   }),
   credit_source: Object.assign({}, VIDEO_USAGE_SCHEMA.credit_source, {
-    description: { en: "Credit source", zh: "积分来源" },
+    description: { en: "Billing basis", zh: "计费依据" },
     enumLabels: {
-      estimated: "积分来源：预扣估算",
-      actual: "积分来源：实际结算",
+      estimated: {
+        en: "Billing basis: duration/resolution estimate",
+        zh: "计费依据：时长/分辨率估算",
+      },
+      actual: {
+        en: "Billing basis: upstream Credit settlement",
+        zh: "计费依据：上游 Credit 结算",
+      },
     },
   }),
 });
@@ -136,7 +142,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.4",
+  version: "0.8.5",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
