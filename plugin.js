@@ -96,7 +96,7 @@ export const meta = {
     en: "Komyvo asynchronous video and image generation",
     zh: "Komyvo 视频与图片生成",
   },
-  version: "0.8.0",
+  version: "0.8.1",
   author: { name: "Komyvo" },
   auth: "api_key",
   models: PLUGIN_MODELS,
