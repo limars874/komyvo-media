@@ -904,14 +904,17 @@ export function parseSubmitResponse(_ctx, response) {
     const message = trimmed(value.Message || value.message || value.ErrorMessage || value.errorMessage);
     throw new Error(code ? code + (message ? ": " + message : "") : "JobId is empty");
   }
+  const image = actionIsImage(_ctx.action);
+  const initialUsage = image ? {} : extractUsage(_ctx);
   return {
     taskId: jobId,
     taskData: {
-      kind: actionIsImage(_ctx.action) ? "image" : "video",
+      kind: image ? "image" : "video",
       model: _ctx.upstreamModel || _ctx.model || "",
       action: _ctx.action || "text_to_video",
       jobId: jobId,
       requestId: value.RequestId || value.requestId || "",
+      initialUsage: initialUsage,
     },
   };
 }
@@ -989,7 +992,12 @@ export function parseTaskResult(ctx, body, response) {
       progress: "99%",
       url: url,
       remoteUrl: url,
-      state: { creditPhase: "pending", creditAttempts: 0, vendorBody: parsed.raw },
+      state: {
+        creditPhase: "pending",
+        creditAttempts: 0,
+        vendorBody: parsed.raw,
+        initialUsage: isObject(ctx.data) && isObject(ctx.data.initialUsage) ? ctx.data.initialUsage : {},
+      },
     };
   }
   if (status.status === "SUCCESS") {
@@ -1059,13 +1067,16 @@ export function extractUsageOnComplete(ctx, result, body) {
     const count = mediaList(parsed.output).length;
     return count > 0 ? { count: count } : {};
   }
+  const initialUsage = isObject(ctx.state) && isObject(ctx.state.initialUsage) ? ctx.state.initialUsage : {};
   if (isObject(ctx.state) && ctx.state.creditSource === "actual") {
     const credits = Number(ctx.state.creditCost);
-    return Number.isFinite(credits) && credits >= 0 ? { credits: credits, credit_source: "actual" } : { credit_source: "estimated" };
+    return Number.isFinite(credits) && credits >= 0
+      ? Object.assign({}, initialUsage, { credits: credits, credit_source: "actual" })
+      : Object.assign({}, initialUsage, { credit_source: "estimated" });
   }
   const seconds = numberValue(parsed.job.Duration || parsed.job.duration || parsed.output.Duration || parsed.output.duration, 0);
   const resolution = parsed.job.Resolution || parsed.job.resolution || parsed.output.Resolution || parsed.output.resolution;
-  const facts = { credit_source: "estimated" };
+  const facts = Object.assign({}, initialUsage, { credit_source: "estimated" });
   if (seconds > 0) facts.seconds = seconds;
   if (resolution) facts.resolution = normalizeVideoResolution(resolution);
   return facts;
