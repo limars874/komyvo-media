@@ -1,28 +1,28 @@
 export const apiBaseUrl = 'https://api.komyvo.com';
 
 const videoParams = [
-  { name: 'model', type: 'string', required: true, defaultValue: '无默认值（必填）', description: '模型 ID。请使用当前页面列出的名称。' },
-  { name: 'prompt', type: 'string', required: true, defaultValue: '无默认值（必填）', description: '提示词。也可以使用 content[] 中的 text 项；至少提供一处非空文本。' },
+  { name: 'model', type: 'string', required: true, defaultValue: '-', description: '模型 ID。' },
+  { name: 'prompt', type: 'string', required: true, defaultValue: '-', description: '提示词。也可以使用 content[] 中的 text 项；至少提供一处非空文本。' },
   { name: 'content', type: 'array', required: false, defaultValue: '[]（无媒体输入）', description: '对象数组，只接受 text、image_url、video_url、audio_url；媒体 URL 必须是公网 http(s)。' },
   { name: 'seconds', type: 'number', required: false, defaultValue: '5 秒', description: '输出时长；接受当前模型限制范围内的整数值。' },
   { name: 'resolution', type: 'string', required: false, defaultValue: '720P', description: '接受 720P、1080P 或有效 WxH 尺寸；WxH 会映射到对应分辨率档位。' },
-  { name: 'aspect_ratio', type: 'string', required: false, defaultValue: '16:9', description: '画面比例；可选值以当前模型的“模型限制”为准。未传时使用 16:9。' },
-  { name: 'generate_audio', type: 'boolean', required: false, defaultValue: 'true（生成音频）', description: '是否生成音频。只能传 Boolean；仅视频生成支持。' },
+  { name: 'aspect_ratio', type: 'string', required: false, defaultValue: '16:9', description: '画面比例；可选值以当前模型的“模型限制”为准。' },
+  { name: 'generate_audio', type: 'boolean', required: false, defaultValue: 'true', description: 'true 生成音频，false 不生成音频。' },
 ];
 
 const imageParams = [
-  { name: 'model', type: 'string', required: true, defaultValue: '无默认值（必填）', description: '模型 ID。请使用当前页面列出的名称。' },
-  { name: 'prompt', type: 'string', required: true, defaultValue: '无默认值（必填）', description: '图片提示词；至少提供一处非空文本。' },
+  { name: 'model', type: 'string', required: true, defaultValue: '-', description: '模型 ID。' },
+  { name: 'prompt', type: 'string', required: true, defaultValue: '-', description: '图片提示词；至少提供一处非空文本。' },
   { name: 'content', type: 'array', required: false, defaultValue: '[]（无媒体输入）', description: '图生图输入，只接受 image_url；每张图片必须是公网 http(s) URL。' },
   { name: 'resolution', type: 'string', required: false, defaultValue: '1K', description: '接受 1K、2K、4K 或有效 WxH 尺寸；WxH 会映射到对应分辨率档位。' },
-    { name: 'aspect_ratio', type: 'string', required: false, defaultValue: '1:1', description: '画面比例；可选值以当前模型的“模型限制”为准。未传时使用 1:1。' },
+  { name: 'aspect_ratio', type: 'string', required: false, defaultValue: '1:1', description: '画面比例；可选值以当前模型的“模型限制”为准。' },
 ];
 
 const videoActionRules = [
   '无媒体：text_to_video。',
   '一张未标记图片或一张 first_frame：image_to_video。',
-  '一张视频：reference_to_video，视频 role 必须为 reference_video。',
-  '一张音频：reference_to_video，音频 role 必须为 reference_audio。',
+  '一个视频：reference_to_video，视频 role 必须为 reference_video。',
+  '一段音频：reference_to_video，音频 role 必须为 reference_audio。',
   '一张 first_frame + 一张 last_frame：first_last_frame，必须恰好两张图片。',
   'reference_image、视频和音频按模型限制进入 reference_to_video；first_frame/last_frame 不能和其他媒体混用。',
 ];
@@ -70,7 +70,7 @@ const videoLimits = {
   seedance25: { duration: '4–15 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'], input: { images: 10, videos: 5, audios: 5, totalMedia: null, mixedMedia: true } },
   seedance20: { duration: '4–15 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'], input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: true } },
   seedance20Fast: { duration: '4–15 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'], input: { images: 9, videos: 3, audios: 3, totalMedia: 15, mixedMedia: true } },
-  happyhorse10: { duration: '3–15 秒（已验证）', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '5:4', '4:5'], input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false } },
+  happyhorse10: { duration: '3–15 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '5:4', '4:5'], input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false } },
   happyhorse11: { duration: '3–15 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '5:4', '4:5'], input: { images: 9, videos: 0, audios: 0, totalMedia: 9, mixedMedia: false } },
   wan30: { duration: '2–30 秒', resolutions: ['720P', '1080P'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], input: { images: 10, videos: 5, audios: 5, totalMedia: 20, mixedMedia: true, videoTotalSeconds: 15, audioTotalSeconds: 15 } },
 };
@@ -156,7 +156,7 @@ export const models = [
     title: 'HappyHorse 1.0',
     description: '成本较低的视频生成模型，支持文本和单图输入；视频/音频参考不支持。',
     prices: [{ label: '720P', value: '¥0.90 / 秒' }, { label: '1080P', value: '¥1.60 / 秒' }],
-    capabilities: ['文生视频', '图生视频', '实际 Credit 结算'],
+    capabilities: ['文生视频', '图生视频'],
     limits: videoLimits.happyhorse10,
   }),
   videoModel({
@@ -178,9 +178,9 @@ export const models = [
   imageModel({
     id: 'qwen-image-3.0',
     title: 'Qwen Image 3.0',
-    description: '支持文生图、图生图和多图输出的图片生成模型。',
+    description: '支持文生图和图生图的高质量图像生成模型。',
     prices: [{ label: '1K / 2K', value: '¥0.18 / 张' }, { label: '4K', value: '¥0.30 / 张' }],
-    capabilities: ['文生图片', '图生图片', '最多 3 张输入图片', '多图输出'],
+    capabilities: ['文生图片', '图生图片', '最多 3 张输入图片'],
     limits: imageLimits.qwen30,
   }),
   imageModel({
@@ -194,7 +194,7 @@ export const models = [
   imageModel({
     id: 'komyvo-image-2',
     title: 'Komyvo Image 2',
-    description: '面向通用图片生成的图片模型。',
+    description: '面向通用图像生成的图片模型。',
     prices: [{ label: '1K / 2K / 4K', value: '按后台配置' }],
     capabilities: ['文生图片', '图生图片'],
     limits: imageLimits.image2,
@@ -202,7 +202,7 @@ export const models = [
   imageModel({
     id: 'komyvo-image-banana',
     title: 'Komyvo Image Banana',
-    description: '面向高质量图片生成的图片模型。',
+    description: '面向高质量写实风格的图片模型。',
     prices: [{ label: '1K / 2K / 4K', value: '按后台配置' }],
     capabilities: ['文生图片', '图生图片'],
     limits: imageLimits.imagePro,

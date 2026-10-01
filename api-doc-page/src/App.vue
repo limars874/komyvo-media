@@ -263,9 +263,9 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash));
           </section>
 
           <section id="content-items" class="doc-section">
-            <div class="section-heading"><div><span class="eyebrow">CONTENT ITEMS</span><h2>content[] 对象</h2></div><span class="section-note">每项必须是对象</span></div>
-            <p class="section-lead">媒体和文字都放在 <code>content[]</code> 中；一个对象只表达一种内容类型。</p>
-            <div class="table-card"><table><thead><tr><th>type</th><th>对象字段</th><th>role</th><th>说明</th></tr></thead><tbody><tr v-for="item in selectedModel.contentItems" :key="item.type"><td><code>{{ item.type }}</code></td><td><code>{{ item.fields }}</code></td><td><span class="default-value">{{ item.role }}</span></td><td>{{ item.description }}</td></tr></tbody></table></div>
+            <div class="section-heading"><div><span class="eyebrow">CONTENT ITEMS</span><h2>content[] 对象</h2></div></div>
+            <p class="section-lead">媒体与文本统一置于 <code>content[]</code> 中，单个元素仅表达一种内容类型。</p>
+            <div class="table-card"><table><thead><tr><th>type</th><th>字段结构</th><th>role</th><th>说明</th></tr></thead><tbody><tr v-for="item in selectedModel.contentItems" :key="item.type"><td><code>{{ item.type }}</code></td><td><code>{{ item.fields }}</code></td><td><span class="default-value">{{ item.role }}</span></td><td>{{ item.description }}</td></tr></tbody></table></div>
           </section>
 
           <section id="model-limits" class="doc-section">
@@ -281,8 +281,8 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash));
           </section>
 
           <section v-if="selectedModel.roles" id="media-roles" class="doc-section">
-            <div class="section-heading"><div><span class="eyebrow">MEDIA INPUT</span><h2>媒体 role</h2></div><span class="section-note">Seedance 风格</span></div>
-            <p class="section-lead">媒体放在 <code>content[]</code> 中，客户端只传公网 URL。<code>role</code> 决定任务类型。</p>
+            <div class="section-heading"><div><span class="eyebrow">MEDIA INPUT</span><h2>媒体 role</h2></div></div>
+            <p class="section-lead">媒体置于 <code>content[]</code> 中，仅接受公网 URL。<code>role</code> 决定任务模式与作用。</p>
             <div class="role-grid"><div v-for="item in selectedModel.roles" :key="item.role" class="role-card"><code>{{ item.role }}</code><strong>{{ item.label }}</strong><p>{{ item.description }}</p><small>默认：{{ item.defaultValue }}</small></div></div>
           </section>
 
@@ -305,9 +305,9 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash));
         <template v-else>
           <section class="doc-section api-reference-section">
             <div class="section-heading"><div><span class="eyebrow">API REFERENCE</span><h2>{{ selectedModel.title }} API</h2></div></div>
-            <p class="section-lead">这里包含媒体 role、异步任务和结果状态的完整调用流程。</p>
-            <div class="reference-card"><div class="reference-head"><span class="method blue">POST</span><code>{{ selectedModel.kind === 'video' ? '/v1/videos' : '/komyvo/v1/images' }}</code></div><h3>提交{{ selectedModel.kind === 'video' ? '视频' : '图片' }}生成任务</h3><p>请求只使用页面列出的公开字段，成功后返回任务 ID。</p><div class="code-card compact"><div class="example-switcher"><div class="example-tabs"><button v-for="example in exampleModes" :key="example.key" :class="{ active: currentExampleMode === example.key }" @click="exampleMode = example.key">{{ example.label }}</button></div><span>{{ activeExample.description }}</span></div><div class="code-toolbar"><span class="toolbar-title">完整请求示例</span><div class="code-toolbar-actions"><div class="code-tabs"><button v-for="language in ['curl', 'python', 'javascript']" :key="language" :class="{ active: codeLanguage === language }" @click="codeLanguage = language">{{ labelForLanguage(language) }}</button></div><button class="copy-code" @click="copyText(code, 'api-code')">{{ copied === 'api-code' ? '✓ 已复制' : '复制代码' }}</button></div></div><pre><code>{{ code }}</code></pre></div></div>
-            <div class="reference-card"><div class="reference-head"><span class="method green">GET</span><code>{{ selectedModel.kind === 'video' ? '/v1/videos/:task_id' : '/komyvo/v1/images/:task_id' }}</code></div><h3>查询任务状态</h3><p>轮询到 <code>completed</code> 或 <code>failed</code>，根据响应状态处理任务结果。</p></div>
+            <p class="section-lead">包含异步任务提交与状态轮询接口规范。</p>
+            <div class="reference-card"><div class="reference-head"><span class="method blue">POST</span><code>{{ selectedModel.kind === 'video' ? '/v1/videos' : '/komyvo/v1/images' }}</code></div><h3>提交{{ selectedModel.kind === 'video' ? '视频' : '图片' }}生成任务</h3><p>提交生成任务，成功后返回任务 ID。</p><div class="code-card compact"><div class="example-switcher"><div class="example-tabs"><button v-for="example in exampleModes" :key="example.key" :class="{ active: currentExampleMode === example.key }" @click="exampleMode = example.key">{{ example.label }}</button></div><span>{{ activeExample.description }}</span></div><div class="code-toolbar"><span class="toolbar-title">完整请求示例</span><div class="code-toolbar-actions"><div class="code-tabs"><button v-for="language in ['curl', 'python', 'javascript']" :key="language" :class="{ active: codeLanguage === language }" @click="codeLanguage = language">{{ labelForLanguage(language) }}</button></div><button class="copy-code" @click="copyText(code, 'api-code')">{{ copied === 'api-code' ? '✓ 已复制' : '复制代码' }}</button></div></div><pre><code>{{ code }}</code></pre></div></div>
+            <div class="reference-card"><div class="reference-head"><span class="method green">GET</span><code>{{ selectedModel.kind === 'video' ? '/v1/videos/:task_id' : '/komyvo/v1/images/:task_id' }}</code></div><h3>查询任务状态</h3><p>轮询任务，直到状态变为 <code>completed</code> 或 <code>failed</code>。</p></div>
           </section>
         </template>
       </main>
